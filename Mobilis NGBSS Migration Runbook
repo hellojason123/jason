@@ -1,0 +1,70 @@
+SN	Task Description
+Migration Preparation	
+1	Login Migration Server
+2	Login iMigration Website
+3	Check Configuration(Dictionary&Offering)
+4	Check Migration Tools Configuration
+5	Clear Migration Tools Operating Logs
+	Check Linux/Database Environment
+6	Clean Data For Migration Tools Table in CAS,INV And HIS
+7	Clean Data For Migration Tools Table in SPT
+8	Clean Migration Tables And Unusable MOBILIS System Indexes For CAS,INV and HIS
+9	Clean Migration Tables And Unusable MOBILIS System Indexes For SPT
+10	Clean Source Data And Unusable Source Table Indexes In Database For EPPIX User
+11	Clean Production Tables And Unusable System Indexes For CAS,INV,HIS And SPT In Product Database
+12	Check corporate contact data
+1 Stop CRM Application	
+1.1	stop esb
+1.2	 Stop ccapp                                                     
+1.3	 Stop ccweb                                                
+1.4	Test Data Clean
+2 Stop Provisioning	
+2.1	Stop Postpaid Management Service
+2.2	Stop EMM push CDRs to Eppix
+2.3	Stop Eppix Process
+3 Extract data from Eppix	
+3.1	Start Eppix Data  Extract
+3.2	Start RBT Data Extract and push to Migration Server
+3.3	Push Migration Data to Migration Server
+4 Import Source Data	
+4.1	Login iMigration Website
+4.2	Import Source Data For User EPPIX By EXPDP
+4.3	Import Source Data For User EPPIX By EXPDP
+4.4	Check Source Data Imported
+	Get CRBT subscription data in CSV file by mail, upload to DM Server
+	Import CRBT subscription data to DB by SQLLDR
+	clean CRBT service data
+4.5	Check The Quality of Source Data
+	Open logic check excel to get result
+5 Convert data	
+5.1	Pre-process CAS Information
+5.2	Customer,Account,Subscriber,Corp,CUG and History Information Load To Interface Table
+5.3	Offering and FN Information Load To Interface Table
+5.4	CAS&SPT Interface Table Data Validation
+	Open logic check excel to get result
+5.5	Update CAS&SPT Interface Table 
+5.6	CAS&SPT Interface Table Data Validation
+	Open logic check excel to get result
+5.7	Inventory&Busi His Qry Information Load To Interface Table
+5.8	INV Interface Table Data Validation
+	Open logic check excel to get result
+5.9	Update INV Interface Table 
+5.11	Customer,Account,Subscriber,Corp,CUG and History Information  Load To Destination Table
+5.12	Offering And FN Information Load To Destination Table
+5.13	Inventory&Busi His Qry Information Load To Destination Table
+5.14	Destination Table Data Validation
+	Open logic check excel to get result
+6 Load data to destination	
+6.1	Export CRM Tables Migrated In DMP Files, Import Transfered CRM  Data To Product Database
+6.2	Rebuild Indexes & Gathering Statistic & Update CRM Sequence Of Migrated Tables For CAS,INV And HIS.
+6.3	Rebuild Indexes & Gathering Statistic & Update CRM Sequence Of Migrated Tables For SPT.
+6.4	Rebuild Indexes & Gathering Statistic & Update CRM Sequence Of Migrated Tables For CAS,INV,HIS And SPT in Product Database.
+6.5	Check Indexes
+6.6	Check Sequence
+6.7	Generate KPI Report Of CRM
+6.8	Enable the archive log of CRMBASEDB
+7 Start CRM Application	
+7.1	 Start ccapp                                                     	
+7.2	 Start ccweb                                                
+7.3	Start esb
+	
