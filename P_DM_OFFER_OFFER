@@ -1,0 +1,282 @@
+procedure P_DM_OFFER_OFFER (i_region in number,i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=20000;
+    v_idx                           number;
+
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.*,
+           b.s_cust_id,
+           b.s_acct_id,
+           b.s_subs_id,
+           b.t_subs_id,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.offer_uni_id       subs_offer_uni_id,
+           b.p_offer_inst_id,
+           b.p_prod_inst_id,
+           b.p_prod_id,
+           b.subs_payment_type,
+           b.status             subs_status,
+           b.bill_cycle_type_id,
+           b.new_bill_cycle,
+           b.IS_SME,
+           d.O_ID               cfg_O_ID,
+           d.O_NAME             cfg_O_NAME,
+           d.O_CODE             cfg_O_CODE,
+           d.BRAND_ID           cfg_BRAND_ID,
+           d.BRAND_NAME         cfg_BRAND_NAME,
+           d.PRIMARY_FLAG       cfg_PRIMARY_FLAG,
+           d.BUNDLE_FLAG        cfg_BUNDLE_FLAG,
+           d.OFFERING_TYPE      cfg_OFFERINGE_TYPE,
+           nvl(e.empl_id_target,'101') empl_id_target
+      from S3_DATA.MID_OFFER_INST a
+      join src_med.pre_cas_all b
+        on a.subs_id = b.s_subs_id
+      join (select distinct O_ID,O_NAME,O_CODE,BRAND_ID,BRAND_NAME,PRIMARY_FLAG,BUNDLE_FLAG,OFFERING_TYPE from src_med.mt_atomic_off) d
+        on d.o_id = a.offering_id
+       left join trans_data.mt_emp_mapping e
+       on a.create_empl_id=e.empl_id_legacy;
+
+    type tab_src_offer is table of src_cur%rowtype index by binary_integer;
+    v_src_offer tab_src_offer;
+
+    --target table
+    type tab_tar_offer is table of SRC_MED.DM_OFFER_INST%rowtype index by binary_integer;
+    v_tar_offer tab_tar_offer;
+
+    --<<BEGIN: Customize variable definition area>>
+    v_offering_inst_id            NUMBER(22);
+    v_rel_pri_offering_inst       number(22);
+   /* v_primary_flag                varchar2(1);*/
+    v_offer_status                varchar2(8);
+    v_p_prod_inst_id              number(22);
+    v_p_prod_id                   number(22);
+    v_offer_uni_id                number(22);
+    v_exp_date                    date;
+    --<<END: Customize variable definition area bottom>>
+
+  BEGIN
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_OFFER_OFFER',i_region, i_index, v_batchnum);
+
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 'S3_DATA', 'MID_OFFER_INST', i_index, v_partname);
+
+    v_src_sql := '
+    select a.*,
+           b.s_cust_id,
+           b.s_acct_id,
+           b.s_subs_id,
+           b.t_subs_id,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.offer_uni_id  subs_offer_uni_id,
+           b.p_offer_inst_id,
+           b.p_prod_inst_id,
+           b.p_prod_id,
+           b.subs_payment_type,
+           b.status subs_status,
+           b.bill_cycle_type_id,
+           b.new_bill_cycle,
+           b.IS_SME,
+           d.O_ID               cfg_O_ID,
+           d.O_NAME             cfg_O_NAME,
+           d.O_CODE             cfg_O_CODE,
+           d.BRAND_ID           cfg_BRAND_ID,
+           d.BRAND_NAME         cfg_BRAND_NAME,
+           d.PRIMARY_FLAG       cfg_PRIMARY_FLAG,
+           d.BUNDLE_FLAG        cfg_BUNDLE_FLAG,
+           d.OFFERING_TYPE      cfg_OFFERINGE_TYPE,
+           nvl(e.dept_id,''101'') empl_id_target
+      from S3_DATA.MID_OFFER_INST partition (' || v_partname || ') a
+      join src_med.pre_cas_all partition (' || v_partname || ') b
+        on a.subs_id = b.s_subs_id
+      join (select distinct O_ID,O_NAME,O_CODE,BRAND_ID,BRAND_NAME,PRIMARY_FLAG,BUNDLE_FLAG,OFFERING_TYPE from src_med.mt_atomic_off) d
+        on d.o_id = a.offering_id
+       left join trans_data.mt_emp_mapping e
+       on a.create_empl_id=e.empl_id_legacy';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_offer.delete;
+      v_tar_offer.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_offer limit v_batchnum;
+      exit when v_src_offer.count = 0;
+
+        v_idx := 1;
+      if v_src_offer.count > 0 then
+
+        for i in v_src_offer.first .. v_src_offer.last loop
+          v_rel_pri_offering_inst := v_src_offer(i).p_offer_inst_id;
+         v_offer_status := PKG_GRETA2_PUB.f_get_newdict('MID_OFFER_INST.STATUS',v_src_offer(i).status,1);--set 2/9 for offer
+         if v_offer_status = '2' and v_src_offer(i).eff_date > v_src_offer(i).EXTRACT_DATE
+         then
+           v_offer_status := '1';
+         end if;
+
+         if v_offer_status = '2' then
+           if v_src_offer(i).subs_status = '1' then
+             v_offer_status := '1';
+           elsif v_src_offer(i).subs_status = '4' and v_src_offer(i).primary_flag = 'Y' then
+             v_offer_status := '4';
+           elsif v_src_offer(i).subs_status = '8' then
+             v_offer_status := '8';
+           else
+             v_offer_status := '2';
+           end if;
+         else
+           if v_src_offer(i).subs_status = '8' and v_src_offer(i).subs_offer_uni_id = v_src_offer(i).offer_uni_id then
+             v_offer_status := '8';
+           end if;
+         end if;
+
+         if v_src_offer(i).subs_status = '8' and  v_offer_status <> '9' then
+           v_exp_date := PKG_GRETA2_DFT.DEF_MAX_DATE;
+         else
+           v_exp_date :=v_src_offer(i).exp_date;
+         end if;
+
+         v_p_prod_inst_id := null;
+         v_p_prod_id := null;
+         v_offer_uni_id := null;
+         if v_src_offer(i).subs_offer_uni_id = v_src_offer(i).offer_uni_id then
+           v_offering_inst_id := v_src_offer(i).p_offer_inst_id;
+           v_p_prod_inst_id := v_src_offer(i).p_prod_inst_id;
+           v_p_prod_id := v_src_offer(i).p_prod_id;
+           v_offer_uni_id := v_src_offer(i).offer_uni_id;
+         else
+           v_offering_inst_id := SEQ_OFFERING_INST_OFFER.NEXTVAL;
+         end if;
+
+    ------------ START INIT V_TAR_OFFER ARRAY FROM OFFER-------------
+        begin
+            v_tar_offer(v_idx).OFFERING_INST_ID          := v_offering_inst_id;
+            v_tar_offer(v_idx).OWNER_ENTITY_TYPE         := 'S';
+            v_tar_offer(v_idx).OWNER_ENTITY_ID           := v_src_offer(i).t_subs_id;
+            v_tar_offer(v_idx).OFFERING_ID               := v_src_offer(i).offering_id;
+            v_tar_offer(v_idx).CUST_ID                   := v_src_offer(i).t_cust_id;
+            v_tar_offer(v_idx).PRIMARY_FLAG              := v_src_offer(i).cfg_PRIMARY_FLAG;
+            v_tar_offer(v_idx).REL_PRI_OFFERING_INST_ID  := v_rel_pri_offering_inst;
+            v_tar_offer(v_idx).APPLY_ENTITY_TYPE         := 'S';--v_src_offer(i).apply_obj_type; legacy provides null
+            v_tar_offer(v_idx).STATUS                    := v_offer_status;
+            v_tar_offer(v_idx).STATUS_DATE               := v_src_offer(i).status_date;
+            v_tar_offer(v_idx).EFF_DATE                  := v_src_offer(i).eff_date;
+            v_tar_offer(v_idx).EXP_DATE                  :=
+            case  v_exp_date when to_date('2099-12-31','yyyy-mm-dd')
+                  then to_date('2100-12-31','yyyy-mm-dd')
+                else  v_exp_date
+                end;--v_src_offer(i).exp_date;--PKG_GRETA2_DFT.DEF_MAX_DATE;
+            v_tar_offer(v_idx).CREATE_ORDER_ID           := '1000';
+            v_tar_offer(v_idx).SALES_CHANNEL_TYPE        := v_src_offer(i).sales_channel_type;--PKG_GRETA2_DFT.DEF_SALES_CHANNEL_TYPE
+            v_tar_offer(v_idx).SALES_CHANNEL_ID          := v_src_offer(i).sales_channel_id;--PKG_GRETA2_DFT.DEF_SALES_CHANNEL_ID
+            v_tar_offer(v_idx).CREATE_EMPL_ID            := v_src_offer(i).empl_id_target;-- PKG_GRETA2_DFT.DEF_CREATE_PROLE_ID
+            v_tar_offer(v_idx).CREATE_TIME               := v_src_offer(i).create_time;
+            v_tar_offer(v_idx).PAYMENT_MODE              := '1';--v_src_offer(i).cfg_payment_mode; set 1 for debug
+            v_tar_offer(v_idx).DFT_ACCT_ID               := v_src_offer(i).t_acct_id;
+            v_tar_offer(v_idx).HIS_DATE                  := null;
+            v_tar_offer(v_idx).ACTIVE_MODE               := null;--v_src_offer(i).cfg_active_mode; set null for debug
+            v_tar_offer(v_idx).ACTIVE_LIMIT_TIME         := null;
+            v_tar_offer(v_idx).ACTIVE_TIME               := v_src_offer(i).eff_date;
+            v_tar_offer(v_idx).DATA_BATCH                := null;
+            v_tar_offer(v_idx).BE_ID                     := PKG_GRETA2_DFT.DEF_BE_ID;
+            v_tar_offer(v_idx).PARTITION_ID              := mod(v_src_offer(i).t_subs_id,100);
+            v_tar_offer(v_idx).FLEX_TEXT                 := null;
+            v_tar_offer(v_idx).APPLY_OBJ_ID              := v_src_offer(i).t_subs_id;
+            v_tar_offer(v_idx).BUNDLE_FLAG               := v_src_offer(i).cfg_bundle_flag;
+            v_tar_offer(v_idx).SKU_ID                    := null;
+            v_tar_offer(v_idx).SRC_OFFERING_ID           := v_src_offer(i).offering_id;
+            v_tar_offer(v_idx).SRC_OFFER_TYPE            := v_src_offer(i).offer_type;
+            v_tar_offer(v_idx).SRC_SUBS_ID               := v_src_offer(i).subs_id;
+            v_tar_offer(v_idx).SOURCE_TYPE               := 'OFFERING';
+            v_tar_offer(v_idx).EXTRACT_DATE              := v_src_offer(i).extract_date;
+            v_tar_offer(v_idx).SALES_ID                  := v_src_offer(i).sales_id;
+            v_tar_offer(v_idx).SUBS_PAYMENT_TYPE         := v_src_offer(i).SUBS_PAYMENT_TYPE;
+            v_tar_offer(v_idx).SRC_IMEI                  := null;
+            v_tar_offer(v_idx).SRC_FN_TYPE_ID            := null;
+            v_tar_offer(v_idx).SRC_CUST_ID               := v_src_offer(i).S_CUST_ID;
+            v_tar_offer(v_idx).SRC_ACCT_ID               := v_src_offer(i).S_ACCT_ID;
+            v_tar_offer(v_idx).p_prod_inst_id            := v_p_prod_inst_id;
+            v_tar_offer(v_idx).p_prod_id                 := v_p_prod_id;
+            v_tar_offer(v_idx).bill_cycle_type_id        := v_src_offer(i).bill_cycle_type_id;
+            v_tar_offer(v_idx).OFFER_UNI_ID              := v_offer_uni_id;
+            v_tar_offer(v_idx).new_bill_cycle_type_id    :=v_src_offer(i).new_bill_cycle;
+            v_tar_offer(v_idx).IS_SME                    :=v_src_offer(i).IS_SME;
+            v_tar_offer(v_idx).PROMOTION_FLAG            :=null;
+            v_tar_offer(v_idx).PROMOTION_ID              :=null;
+            v_tar_offer(v_idx).CONTRACT_FLAG             :=null;
+            v_tar_offer(v_idx).HANDSET_NO                :=null;
+            v_tar_offer(v_idx).INVOICE_ID                :=null;
+            v_tar_offer(v_idx).offer_code                :=v_src_offer(i).cfg_O_CODE;
+            v_tar_offer(v_idx).offer_name                :=v_src_offer(i).cfg_O_NAME;
+            v_tar_offer(v_idx).LICENSE_EMAIL             :=v_src_offer(i).LICENSE_EMAIL;
+            v_tar_offer(v_idx).OLD_OFFERING_INST_ID      :=v_src_offer(i).OFFERING_INST_ID;
+            v_tar_offer(v_idx).BUNDLE_OFFER_ID           :=v_src_offer(i).BUNDLE_OFFER_ID;
+            v_tar_offer(v_idx).BUNDLE_OFFERING_INST_ID   :=v_src_offer(i).BUNDLE_OFFERING_INST_ID;
+            v_tar_offer(v_idx).P_OFFERING_INST_ID        :=null;
+
+         exception
+            when others then
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'MID_OFFER_INST.SUBS_ID';
+              v_err.key_value := v_src_offer(i).subs_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT V_TAR_OFFER ARRAY FROM OFFER';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+        end;
+        -----------------END INIT V_TAR_OFFER ARRAY FROM OFFER-------------
+        v_idx := v_idx + 1;
+        end loop;
+       end if;
+       v_idx := v_idx - 1;
+      --output records and commit changes
+
+      if v_idx > 0 then
+        -------------- START INSERT DM_OFFER_INST FROM OFFER----------------
+        begin
+            forall i_idx in 1 .. v_idx save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_OFFER_INST values v_tar_offer(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_OFFER_INST.subs_id.offering_id';
+                  v_err.key_value := v_tar_offer(sql%bulk_exceptions(the_err).error_index).OWNER_ENTITY_ID
+                  ||'.'||v_tar_offer(sql%bulk_exceptions(the_err).error_index).offering_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_OFFER_INST FROM OFFER';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+        end;
+        -----------------END INSERT DM_OFFER_INST FROM OFFER----------------------
+          pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_offer.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+  exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+  end P_DM_OFFER_OFFER;
