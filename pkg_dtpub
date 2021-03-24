@@ -1,0 +1,1409 @@
+create or replace package exe_fixed.pkg_dtpub is
+
+  /**********************************************************************************
+  NAME:       PKG_DTPUB
+  PURPOSE:    Public packets framework
+  REVISIONS:
+  Ver        Date         Author                  Description
+  ---------  ----------  ----------------------   ------------------------------------
+  D2.0       2014-02-15   guihongliang 126661     1.initialize
+  NOTES:
+  **********************************************************************************/
+
+  function f_get_midvalue(in_minvalue  in varchar2,
+                          in_maxvalue  in varchar2,
+                          in_powernum  in number,
+                          out_distance out number,
+                          in_type      in number default 0) return varchar2;
+
+  procedure p_get_minmax(i_region         in varchar2, -- varchar2(10)
+                         i_procedure_name in varchar2, -- varchar2(30)
+                         i_table_owner    in varchar2, -- varchar2(30)
+                         i_table_name     in varchar2, -- varchar2(30)
+                         i_field_name     in varchar2, -- varchar2(30)
+                         i_ind            in number, -- number(3)
+                         o_start_id       out varchar2, -- varchar2(64) ID
+                         o_end_id         out varchar2 -- varchar2(64) ID
+                         );
+
+  procedure p_gen_insert_sql(in_db_user    in varchar2,
+                             in_table_name in varchar2,
+                             in_gentype    in number default 0);
+
+  procedure p_dt_object(db_owner in varchar2, object_type in varchar2);
+
+  procedure p_get_partname(i_region         in varchar2, -- varchar2(10)
+                           i_procedure_name in varchar2, -- varchar2(30)
+                           i_table_owner    in varchar2, -- varchar2(30)
+                           i_table_name     in varchar2, -- varchar2(30)
+                           i_ind            in number, -- number(3)
+                           o_partname       out varchar2 -- varchar2(64)
+                           );
+
+  procedure p_ini_runlog(in_regioncode varchar2, in_groupstr varchar2);
+
+  procedure p_ini_runlog_byprocedure(in_regioncode varchar2,
+                                     in_procedure  varchar2);
+
+  procedure p_create_tab_idx_script(i_obj_type in varchar2,
+                                    i_username in varchar2,
+                                    i_obj_name in varchar2,
+                                    i_dirname  in varchar2);
+
+  procedure p_tool_get_incr_tab(i_owner varchar2, i_tab_name varchar2);
+
+  procedure p_trs_rename(i_region in number);
+  procedure p_get_max_min_partname(i_region         in varchar2, -- varchar2(10)
+                                   i_procedure_name in varchar2, -- varchar2(30)
+                                   i_table_owner    in varchar2, -- varchar2(30)
+                                   i_table_name     in varchar2, -- varchar2(30)
+                                   i_field_name     in varchar2, -- varchar2(30)
+                                   i_ind            in number, -- number(3)
+                                   o_start_id       out varchar2, -- varchar2(64) ID
+                                   o_end_id         out varchar2, -- varchar2(64) ID
+                                   o_partition_name out varchar2 -- varchar2(64)
+                                   );
+
+  procedure p_tool_batchrowid_del
+  /*--------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------*/
+  (i_tabowner varchar2, i_tabname varchar2, i_requirement varchar2);
+
+  /*--------------------------------------------------------------------------------
+  --------------------------------------------------------------------------------*/
+  procedure p_ini_dt_divide_ind_part(in_procedure_name varchar2,
+                                     in_table_owner    varchar2,
+                                     in_table_name     varchar2,
+                                     in_field_name     varchar2,
+                                     in_divide_type    varchar2,
+                                     in_region         in number default 999);
+
+  function f_get_tar_table_owner(i_tar_tablename in varchar2) return varchar2;
+
+  procedure p_update_seq_mge(p_now_value  in number,
+                             p_field_name in varchar2,
+                             p_seq_name   in varchar2);
+
+end pkg_dtpub;
+/
+
+create or replace package body exe_fixed.pkg_dtpub is
+
+  procedure p_get_minmax(i_region         in varchar2, -- varchar2(10)
+                         i_procedure_name in varchar2, -- varchar2(30)
+                         i_table_owner    in varchar2, -- varchar2(30)
+                         i_table_name     in varchar2, -- varchar2(30)
+                         i_field_name     in varchar2, -- varchar2(30)
+                         i_ind            in number, -- number(3)
+                         o_start_id       out varchar2, -- varchar2(64)
+                         o_end_id         out varchar2 -- varchar2(64)
+                         ) as
+  begin
+    select /*+ (ind,IDX_DT_DIVIDE_IND) */
+     start_id, end_id
+      into o_start_id, o_end_id
+      from dt_divide_ind ind
+     where region = i_region
+       and procedure_name = upper(i_procedure_name)
+       and table_owner = upper(i_table_owner)
+       and table_name = upper(i_table_name)
+       and field_name = upper(i_field_name)
+       and ind = i_ind
+       and divide_type = 'INDEX';
+
+    if (i_ind = 1) then
+      begin
+        update /*+ (runlog,IDX_DT_RUNLOG) */ dt_runlog runlog
+           set divide_status = 1
+         where region = i_region
+           and object_name = upper(i_procedure_name);
+        commit;
+      exception
+        when others then
+          null;
+      end;
+    end if;
+
+  exception
+    when others then
+      o_start_id := null;
+      o_end_id   := null;
+  end p_get_minmax;
+  --p_get_minmax----------------------------------------------------------
+
+  procedure p_get_partname_old(i_region         in varchar2, -- varchar2(10)
+                               i_procedure_name in varchar2, -- varchar2(30)
+                               i_table_owner    in varchar2, -- varchar2(30)
+                               i_table_name     in varchar2, -- varchar2(30)
+                               i_ind            in number, -- number(3)
+                               o_partname       out varchar2 -- varchar2(64)
+                               ) as
+  begin
+    select /*+ (ind,IDX_DT_DIVIDE_IND) */
+     start_id
+      into o_partname
+      from dt_divide_ind ind
+     where region = i_region
+       and procedure_name = upper(i_procedure_name)
+       and table_owner = upper(i_table_owner)
+       and table_name = upper(i_table_name)
+       and ind = i_ind
+       and divide_type = 'PART';
+  exception
+    when others then
+      o_partname := null;
+  end p_get_partname_old;
+  --p_get_partname----------------------------------------------------------
+
+  procedure p_get_partname(i_region         in varchar2, -- varchar2(10)
+                           i_procedure_name in varchar2, -- varchar2(30)
+                           i_table_owner    in varchar2, -- varchar2(30)
+                           i_table_name     in varchar2, -- varchar2(30)
+                           i_ind            in number, -- number(3)
+                           o_partname       out varchar2 -- varchar2(64)
+                           ) as
+  begin
+    select ind.partition_name
+      into o_partname
+      from all_TAB_PARTITIONS ind
+     where ind.table_owner = upper(i_table_owner)
+       and ind.table_name = upper(i_table_name)
+       and ind.partition_position = i_ind;
+  exception
+    when others then
+      o_partname := null;
+  end p_get_partname;
+  --p_get_partname----------------------------------------------------------
+
+  procedure p_gen_insert_sql(in_db_user    in varchar2,
+                             in_table_name in varchar2,
+                             in_gentype    in number default 0) is
+    v_sql varchar2(4000);
+    type tab_record is record(
+      owner          varchar2(30),
+      table_name     varchar2(30), --   Table, view or cluster name
+      column_name    varchar2(30), --    Column name
+      data_type      varchar2(106), -- Y
+      data_length    number, -- Length of the column in bytes
+      data_precision number, --  Y
+      nullable       varchar2(1) --  Y
+      );
+
+    cur_row       tab_record; --
+    v_fields_sql  varchar2(4000) := null;
+    v_values_sql  varchar2(4000) := null;
+    v_data_length varchar2(200) := null;
+    v_colcount    number;
+    v_insert_sql  varchar2(4000);
+    v_column_name varchar2(60) := null;
+    v_nullable    varchar2(10) := null;
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+    v_log_record    pkg_dtlog.log_record;
+    v_err_record    pkg_dtlog.err_record;
+    v_maxcolperline number;
+
+  begin
+
+    v_log_record.object_name   := 'P_GEN_INSERT_SQL';
+    v_log_record.register_name := 'P_GEN_INSERT_SQL';
+    v_maxcolperline            := 6;
+
+    v_sql := ' select  OWNER, TABLE_NAME,COLUMN_NAME,DATA_TYPE,DATA_LENGTH, DATA_PRECISION,NULLABLE ' ||
+             ' from ALL_TAB_COLUMNS ' || ' where  OWNER = ''' ||
+             upper(in_db_user) || '''' || ' AND  table_name = ''' ||
+             upper(in_table_name) || '''';
+    pkg_dtlog.p_register(v_log_record);
+    commit;
+    --insert into  sa_db_common
+    if in_gentype = 0 then
+      v_fields_sql := '''insert into ''||db_user||''.' || in_table_name ||
+                      ' ( ' || chr(13);
+      v_values_sql := '              values( ' || chr(13);
+    else
+      v_fields_sql := '''insert into ''||db_user||''.' || in_table_name ||
+                      ' ( ''' || chr(13);
+      v_values_sql := '             ||'' values( ''' || chr(13);
+    end if;
+    v_colcount := 0;
+    open cur_list for v_sql;
+    loop
+      fetch cur_list
+        into cur_row;
+      exit when cur_list%notfound;
+
+      if in_gentype = 0 then
+        if v_column_name is not null then
+          v_fields_sql := v_fields_sql || ','; --'||v_data_length||'   '||v_NULLABLE||chr(13);
+          v_values_sql := v_values_sql || ',';
+          v_colcount   := v_colcount + 1;
+          if v_colcount >= v_maxcolperline then
+            v_fields_sql := v_fields_sql || '' || chr(13);
+            v_values_sql := v_values_sql || '' || chr(13);
+            v_colcount   := 0;
+          end if;
+        end if;
+
+        if v_colcount = 0 then
+          v_fields_sql := v_fields_sql || '        ' || cur_row.column_name;
+          v_values_sql := v_values_sql || '       :' || cur_row.column_name;
+        else
+          v_fields_sql := v_fields_sql || cur_row.column_name;
+          v_values_sql := v_values_sql || ':' || cur_row.column_name;
+        end if;
+
+        v_column_name := cur_row.column_name;
+        v_nullable    := cur_row.nullable;
+      else
+        if v_column_name is not null then
+          v_fields_sql := v_fields_sql || ',''             ' || chr(13);
+          v_values_sql := v_values_sql || ',''            --' ||
+                          v_column_name || ' ' || v_data_length || '   ' ||
+                          v_nullable || chr(13);
+        end if;
+
+        v_fields_sql := v_fields_sql || '               ||''' ||
+                        cur_row.column_name;
+        v_values_sql := v_values_sql || '               ||'':' ||
+                        cur_row.column_name;
+
+        if cur_row.data_type = 'NUMBER' then
+          v_data_length := cur_row.data_type || '(' ||
+                           to_char(cur_row.data_precision) || ')';
+
+        elsif cur_row.data_type = 'VARCHAR2' then
+          v_data_length := cur_row.data_type || '(' ||
+                           to_char(cur_row.data_length) || ')';
+        else
+          v_data_length := cur_row.data_type;
+        end if;
+
+        v_column_name := cur_row.column_name;
+        v_nullable    := cur_row.nullable;
+      end if;
+    end loop; /*For serv*/
+
+    if in_gentype = 0 then
+      v_fields_sql := v_fields_sql || ')                 ' || chr(13);
+      v_values_sql := v_values_sql || ')'';';
+    else
+      v_fields_sql := v_fields_sql || ')''            ' || chr(13);
+      v_values_sql := v_values_sql || ')'';            --' || v_column_name || ' ' ||
+                      v_data_length || '   ' || v_nullable || chr(13);
+    end if;
+    v_insert_sql := ' insert into dt_Insert_SQL(table_owner,table_name,Insert_sql) values(:table_owner,:table_name,:Insert_sql) ';
+
+    execute immediate v_insert_sql
+      using upper(in_db_user), upper(in_table_name), v_fields_sql || v_values_sql;
+    commit;
+    pkg_dtlog.p_commit(v_log_record);
+    commit;
+  exception
+    when others then
+      pkg_dtlog.p_exception(v_log_record, v_err_record);
+      commit;
+  end;
+
+  ----------------------------------------------------------------------------------------
+  procedure p_dt_object(db_owner in varchar2, object_type in varchar2) is
+
+  begin
+
+    insert into dt_object_opertab
+      (object_name, object_type, oper_type, table_owner, table_name)
+      select a.name,
+             a.type,
+             '' as oper_type,
+             a.referenced_owner,
+             a.referenced_name
+        from user_dependencies a
+       where a.referenced_type = 'TABLE'
+         and a.type <> 'VIEW';
+
+    commit;
+
+  end;
+  ------------------------------------------------------------------------------------------------
+  function f_get_midvalue(in_minvalue  in varchar2,
+                          in_maxvalue  in varchar2,
+                          in_powernum  in number,
+                          out_distance out number,
+                          in_type      in number default 0) return varchar2 is
+    v_result varchar2(64);
+    v_minlen number(8);
+    v_maxlen number(8);
+
+    v_minvalue    varchar2(32);
+    v_maxvalue    varchar2(32);
+    i             number(8);
+    v_subsminchar varchar2(8);
+    v_subsmaxchar varchar2(8);
+
+    v_minindex number(8);
+    v_maxindex number(8);
+    v_findmin  number(8);
+    v_findmax  number(8);
+    v_diff     number(32);
+    i          number(8);
+    j          number(8);
+    v_mod      number(32);
+    --err_msg    varchar2(256);
+    v_powernum number(32, 4);
+
+    type ascii_rec is record(
+      signle_char char(1));
+    type asciichar_rec is table of ascii_rec index by binary_integer;
+
+    ascii_arrow asciichar_rec;
+
+    type index_rec is record(
+      index_num   number(2),
+      single_char char(1));
+    type indexchar_rec is table of index_rec index by binary_integer;
+
+    minstrindex_arrow indexchar_rec;
+    maxstrindex_arrow indexchar_rec;
+  begin
+    begin
+      v_minlen := length(in_minvalue);
+      v_maxlen := length(in_maxvalue);
+      if v_minlen < v_maxlen then
+        v_minvalue := lpad(in_minvalue, v_maxlen, 0);
+        v_maxvalue := in_maxvalue;
+      elsif v_minlen > v_maxlen then
+        v_minvalue := in_minvalue;
+        v_maxvalue := lpad(in_maxvalue, v_maxlen, 0);
+      else
+        v_minvalue := in_minvalue;
+        v_maxvalue := in_maxvalue;
+      end if;
+
+      if in_type = 0 then
+
+        v_powernum := in_powernum;
+        if v_minlen = v_maxlen then
+          v_result := lpad(v_minvalue +
+                           trunc((v_maxvalue - v_minvalue) / v_powernum),
+                           v_maxlen,
+                           0);
+        else
+          v_result := lpad(v_minvalue +
+                           trunc((v_maxvalue - v_minvalue) / v_powernum),
+                           v_maxlen,
+                           0);
+        end if;
+      else
+
+        --v_powernum := in_powernum + 60;
+
+        for i in 1 .. 10 loop
+          ascii_arrow(i).signle_char := chr(48 + i - 1);
+        end loop;
+        for i in 11 .. 36 loop
+          ascii_arrow(i).signle_char := chr(65 + i - 11);
+        end loop;
+        for i in 37 .. 62 loop
+          ascii_arrow(i).signle_char := chr(97 + i - 37);
+        end loop;
+
+        v_diff := 0;
+
+        for i in 1 .. v_maxlen loop
+          v_subsmaxchar := substrb(v_maxvalue, v_maxlen + 1 - i, 1);
+          v_subsminchar := substrb(v_minvalue, v_maxlen + 1 - i, 1);
+          v_findmin     := 0;
+          v_findmax     := 0;
+          j             := 1;
+          while (v_findmin = 0 or v_findmax = 0) loop
+            if ascii_arrow(j).signle_char = v_subsminchar then
+              minstrindex_arrow(v_maxlen + 1 - i).index_num := j;
+              minstrindex_arrow(v_maxlen + 1 - i).single_char := v_subsminchar;
+              v_minindex := j;
+              v_findmin := 1;
+            end if;
+            if ascii_arrow(j).signle_char = v_subsmaxchar then
+              maxstrindex_arrow(v_maxlen + 1 - i).index_num := j;
+              maxstrindex_arrow(v_maxlen + 1 - i).single_char := v_subsminchar;
+              v_maxindex := j;
+              v_findmax := 1;
+            end if;
+            j := j + 1;
+          end loop;
+          v_diff := v_diff + (v_maxindex - v_minindex) * power(62, i - 1);
+        end loop;
+        v_diff       := trunc(v_diff / in_powernum);
+        out_distance := v_diff;
+        v_mod        := mod(v_diff, 62);
+        v_diff       := trunc(v_diff / 62);
+        j            := 1;
+        /*   v_midStr :=  in_minvalue;*/
+        while v_mod <> 0 or v_diff <> 0 loop
+          v_subsminchar := substrb(v_minvalue, v_maxlen + 1 - j, 1);
+
+          v_diff     := v_diff + trunc((v_mod + minstrindex_arrow(v_maxlen + 1 - j)
+                                       .index_num) / 62);
+          v_mod      := mod((v_mod + minstrindex_arrow(v_maxlen + 1 - j)
+                            .index_num),
+                            62);
+          v_minvalue := substrb(v_minvalue, 1, v_maxlen - j) || ascii_arrow(v_mod + 1)
+                       .signle_char ||
+                        substrb(v_minvalue, v_maxlen - j + 2);
+
+          v_mod  := mod(v_diff, 62);
+          v_diff := trunc(v_diff / 62);
+          j      := j + 1;
+        end loop;
+        v_result := v_minvalue;
+      end if;
+    exception
+      when others then
+        null;
+    end;
+    -- Result := v_diff;
+    return(v_result);
+  end f_get_midvalue;
+  /************************************************************************************************************/
+  procedure p_ini_runlog(in_regioncode varchar2, in_groupstr varchar2) is
+
+    --type cur_ref is ref cursor;
+    --cur_region cur_ref; --
+
+    v_region_cond varchar2(1024);
+    --v_region      number(4);
+    v_insert_sql varchar2(4000);
+    v_group_cond varchar2(1024);
+
+    v_del_dt_runlog_sql        varchar2(4000);
+    v_del_dt_runlog_detail_sql varchar2(4000);
+  begin
+    if in_regioncode = 'ALL' then
+      v_region_cond := ' region is not null';
+    else
+      v_region_cond := ' region =any(' || in_regioncode || ',999,111)';
+    end if;
+
+    if in_groupstr = 'ALL' then
+      v_group_cond := ' GROUP_ID is not null';
+    else
+      v_group_cond := ' GROUP_ID =any(''' || in_groupstr || ''')';
+    end if;
+
+    v_del_dt_runlog_sql        := ' delete from dt_runlog a where ' ||
+                                  v_group_cond || ' and ' || v_region_cond;
+    v_del_dt_runlog_detail_sql := ' delete from dt_runlog_detail a where ' ||
+                                  v_group_cond || ' and ' || v_region_cond;
+    begin
+      execute immediate v_del_dt_runlog_sql;
+      commit;
+    exception
+      when others then
+        null;
+    end;
+
+    begin
+      execute immediate v_del_dt_runlog_detail_sql;
+      commit;
+    exception
+      when others then
+        null;
+    end;
+
+    v_insert_sql := 'insert into dt_runlog ( ' || ---
+                    ' taskid,region,object_name,ind_procedure_name,group_id,priority_id,run_type, ' || --
+                    ' begin_num,end_num,running_num,run_status,divide_status, ' || --
+                    ' finished_num,logtab_id,tns_name ' || --
+                    ' )  select distinct a.taskid, a.region,upper(a.object_name),upper(a.ind_procedure_name),a.group_id,a.priority_id, ' || ---
+                    ' a.run_type, a.begin_num,a.end_num,a.begin_num -1,0,0,0,logtab_id,tns_name  ' || ---
+                    ' from dt_runcfg a where ' --
+                    || v_group_cond || ' and ' || v_region_cond;
+    execute immediate v_insert_sql;
+    commit;
+
+  end p_ini_runlog;
+
+  /**************************************************************************************************************/
+
+  procedure p_ini_runlog_byprocedure(in_regioncode varchar2,
+                                     in_procedure  varchar2) is
+
+    v_region_cond varchar2(1024);
+    --v_region      number(4);
+    v_insert_sql varchar2(4000);
+    v_group_cond varchar2(1024);
+
+  begin
+
+    if in_regioncode = 'ALL' then
+      v_region_cond := ' a.region is not null';
+    else
+      v_region_cond := ' a.region =any(' || in_regioncode || ',999)';
+    end if;
+    begin
+      delete from dt_runlog b where b.object_name = in_procedure;
+      commit;
+    exception
+      when others then
+        null;
+    end;
+
+    begin
+      delete from dt_runlog_detail b where b.object_name = in_procedure;
+      commit;
+    exception
+      when others then
+        null;
+    end;
+
+    commit;
+    v_insert_sql := 'insert into dt_runlog (taskid,region,object_name,ind_procedure_name,group_id,priority_id,run_type,
+    begin_num,end_num,running_num,run_status,divide_status,finished_num,logtab_id)
+    select a.TASKID,a.region,upper(a.object_name),upper(a.ind_procedure_name),a.group_id,a.priority_id,a.run_type,
+    a.begin_num,a.end_num,a.begin_num -1,0,0,0,a.LOGTAB_ID from dt_runcfg a where ' ---
+                    || v_group_cond || ' and ' || v_region_cond ||
+                    ' and a.object_name =:objectname ';
+
+    execute immediate v_insert_sql
+      using in_procedure;
+    commit;
+
+  end p_ini_runlog_byprocedure;
+  /***************************************************************************************************/
+  procedure p_static_indexdiv is
+  begin
+    insert into dt_divide_stat
+      (region, object_name, divide_num, begin_num, end_num)
+      select b.region, b.procedure_name, b.divide_num, 1, b.divide_num
+        from dt_divide_cfg b;
+    commit;
+  end;
+  /***************************************************************************************************/
+  procedure p_create_tab_idx_script(i_obj_type in varchar2,
+                                    i_username in varchar2,
+                                    i_obj_name in varchar2,
+                                    i_dirname  in varchar2) is
+    v_resultmesg varchar2(1024);
+    --v_filename     varchar2(32);
+    v_crt_flag     number(1);
+    v_username     varchar2(32);
+    v_tabname      varchar2(32);
+    v_part_flag    number(1);
+    v_part_type    varchar2(32);
+    v_part_name    varchar2(32);
+    v_space_name   varchar2(32);
+    v_high_value   long;
+    v_col_num      number(3) := 0;
+    v_col_value    varchar2(128);
+    v_init_val     number;
+    v_part_key     varchar2(60);
+    v_part_line    varchar2(512);
+    v_part_num     number;
+    v_part_count   number;
+    v_obj_count    number;
+    v_col_idx      varchar2(256);
+    v_idx_keys     varchar2(64);
+    v_pos          number(3);
+    v_tabspace_pos number;
+    v_ifadd        number(1);
+    v_destname     varchar2(32);
+
+    cursor cur_tab is
+      select distinct table_owner, table_name
+        from dt_object_opertab t
+       where t.oper_type = 'SELECT'
+         and t.table_owner in ('SOURCE', 'SOURCE_DICT')
+         and table_name not in ('SWITCH_COMM_HIS', 'SUBJECT_DEF')
+       order by table_owner, table_name asc;
+
+    cursor cur_tabtoidx is
+      select distinct table_owner, table_name, sql_text
+        from dt_object_opertab
+       where oper_type = 'SELECT'
+         and sql_text is not null
+       order by table_owner, table_name asc;
+
+    cursor cur_part_keys is
+      select column_name
+        from dba_part_key_columns key_col
+       where key_col.owner = v_username
+         and key_col.name = v_tabname
+         and object_type = 'TABLE'
+       order by key_col.column_position;
+
+    cursor cur_parts is
+      select partition_name, high_value, tablespace_name
+        from dba_tab_partitions
+       where table_owner = v_username
+         and table_name = v_tabname
+       order by partition_position asc;
+
+    cursor cur_cols is
+      select column_name, data_type, data_length, column_id
+        from dba_tab_cols
+       where owner = v_username
+         and table_name = v_tabname
+       order by column_id asc;
+
+  begin
+
+    v_username := upper(i_username);
+
+    if i_obj_type = 0 then
+      --create table
+      if upper(i_obj_name) = 'ALL' or i_obj_name is null then
+        --v_filename := 'all_table.sql';
+        v_crt_flag := 0;
+      else
+        --v_filename := i_obj_name || '_table.sql';
+        v_crt_flag := 1;
+      end if;
+    else
+      --create index
+      if upper(i_obj_name) = 'ALL' or i_obj_name is null then
+        --v_filename := 'all_index.sql';
+        v_crt_flag := 2;
+      else
+        --v_filename := i_obj_name || '_index.sql';
+        v_crt_flag := 3;
+      end if;
+    end if;
+
+    begin
+
+      if v_crt_flag = 0 then
+        --all tab
+        dbms_output.put_line('---------------------Create Table----------------------------');
+        v_obj_count    := 0;
+        v_tabspace_pos := 10;
+        for aa in cur_tab loop
+          begin
+            select t.orig_owner
+              into v_username
+              from dt_export_tables t
+             where t.table_name = aa.table_name
+               and rownum = 1;
+
+          exception
+            when no_data_found then
+              v_username := 'TBCS';
+          end;
+
+          v_destname := upper(aa.table_owner);
+          v_tabname  := upper(aa.table_name);
+
+          select count(*)
+            into v_col_num
+            from dba_tab_cols
+           where owner = v_username
+             and table_name = v_tabname;
+
+          v_obj_count := v_obj_count + 1;
+          dbms_output.put_line('-- ' || v_obj_count ||
+                               ' ---------Create table ' || v_tabname ||
+                               '-----------------');
+          dbms_output.put_line('drop table ' || v_destname || '.' ||
+                               v_tabname);
+          dbms_output.put_line('/');
+          dbms_output.put_line('create table ' || v_destname || '.' ||
+                               v_tabname);
+          dbms_output.put_line('(');
+
+          for cc in cur_cols loop
+            v_col_value := '  ' || cc.column_name || ' ';
+            if cc.data_type like '%CHAR%' then
+              v_col_value := v_col_value ||
+                             lpad(' ', 32 - length(v_col_value)) ||
+                             cc.data_type || '(' || cc.data_length || ')';
+            else
+              v_col_value := v_col_value ||
+                             lpad(' ', 32 - length(v_col_value)) ||
+                             cc.data_type;
+            end if;
+            if cc.column_id <> v_col_num then
+              v_col_value := v_col_value || ',';
+            end if;
+            dbms_output.put_line(v_col_value);
+          end loop;
+          dbms_output.put_line(')');
+
+          begin
+            select partitioning_type, partition_count
+              into v_part_type, v_part_num
+              from dba_part_tables
+             where owner = v_username
+               and table_name = v_tabname;
+            v_part_flag := 1;
+          exception
+            when others then
+              v_part_flag := 0;
+          end;
+
+          v_ifadd := 1;
+          if v_part_flag = 0 then
+
+            select bytes / 1024 / 1024
+              into v_init_val
+              from dba_segments
+             where owner = v_username
+               and segment_type like '%TABLE%'
+               and segment_name = v_tabname;
+            if v_init_val < 1 then
+              v_init_val := 1;
+            else
+              v_init_val := ceil(v_init_val);
+            end if;
+
+            v_space_name := 'D_CUST20';
+
+            dbms_output.put_line('tablespace ' || v_space_name);
+            dbms_output.put_line('  INITRANS 10');
+            dbms_output.put_line('  NOLOGGING');
+            dbms_output.put_line('  STORAGE');
+            dbms_output.put_line('  (');
+            dbms_output.put_line('     INITIAL ' || v_init_val || 'M');
+            dbms_output.put_line('  )');
+          else
+
+            v_part_key := null;
+            for dd in cur_part_keys loop
+              if v_part_key is null then
+                v_part_key := dd.column_name;
+              else
+                v_part_key := v_part_key || ',' || dd.column_name;
+              end if;
+            end loop;
+
+            dbms_output.put_line('INITRANS 20');
+            dbms_output.put_line('PARTITION BY ' || v_part_type || ' (' ||
+                                 v_part_key || ')');
+            dbms_output.put_line('(');
+
+            v_part_count := 0;
+            for bb in cur_parts loop
+              v_part_name  := bb.partition_name;
+              v_high_value := bb.high_value;
+              v_space_name := bb.tablespace_name;
+              v_part_count := v_part_count + 1;
+              if v_part_type = 'RANGE' then
+                v_part_line := 'PARTITION ' || v_part_name ||
+                               ' VALUES less than (' || v_high_value || ')';
+              elsif v_part_type = 'LIST' then
+                v_part_line := 'PARTITION ' || v_part_name || ' VALUES (' ||
+                               v_high_value || ')';
+              else
+                v_part_line := 'PARTITION ' || v_part_name || ' VALUES (' ||
+                               v_high_value || ')';
+              end if;
+
+              select bytes / 1024 / 1024
+                into v_init_val
+                from dba_segments
+               where owner = v_username
+                 and segment_name = v_tabname
+                 and segment_type like '%TABLE%'
+                 and partition_name = v_part_name;
+              v_ifadd := 1;
+              if v_init_val < 2 then
+                v_init_val := 1;
+              else
+                v_init_val := ceil(v_init_val);
+              end if;
+
+              if v_tabspace_pos > 6 then
+                v_tabspace_pos := 1;
+              else
+                v_tabspace_pos := v_tabspace_pos + 1;
+              end if;
+              v_space_name := 'D_LOG20_0' || v_tabspace_pos;
+
+              dbms_output.put_line('  ' || v_part_line);
+              dbms_output.put_line('    TABLESPACE ' || v_space_name);
+              dbms_output.put_line('    STORAGE');
+              dbms_output.put_line('    (');
+              dbms_output.put_line('       INITIAL ' || v_init_val || 'M');
+              dbms_output.put_line('       NEXT 5M');
+              if v_part_num = v_part_count then
+                dbms_output.put_line('    )');
+              else
+                dbms_output.put_line('    ),');
+              end if;
+
+            end loop;
+            dbms_output.put_line(')');
+            dbms_output.put_line('NOLOGGING');
+
+          end if;
+          dbms_output.put_line('/');
+          dbms_output.new_line;
+
+        end loop;
+      elsif v_crt_flag = 1 then
+
+        null;
+
+      elsif v_crt_flag = 2 then
+        dbms_output.put_line('---------------------Create Index----------------------------');
+        v_obj_count    := 0;
+        v_tabspace_pos := 10;
+        for aa in cur_tabtoidx loop
+          begin
+            select t.orig_owner
+              into v_username
+              from dt_export_tables t
+             where t.table_name = aa.table_name
+               and rownum = 1;
+          exception
+            when no_data_found then
+              v_username := 'TBCS';
+          end;
+
+          v_destname := upper(aa.table_owner);
+          v_tabname  := upper(aa.table_name);
+          v_col_idx  := upper(trim(aa.sql_text));
+          v_pos      := 0;
+
+          begin
+            select partition_count
+              into v_part_num
+              from dba_part_tables
+             where owner = v_username
+               and table_name = v_tabname;
+            v_part_flag := 1;
+          exception
+            when others then
+              v_part_flag := 0;
+          end;
+
+          while length(v_col_idx) > 1 loop
+            v_pos := instr(v_col_idx, '|', 1, 1);
+            if v_pos = 0 then
+              v_idx_keys := v_col_idx;
+              v_col_idx  := null;
+            else
+              v_idx_keys := substrb(v_col_idx, 1, v_pos - 1);
+              v_col_idx  := substrb(v_col_idx, v_pos + 1);
+            end if;
+
+            v_obj_count := v_obj_count + 1;
+            dbms_output.put_line('-- ' || v_obj_count ||
+                                 ' ---------Create Index on[' ||
+                                 v_idx_keys || ']-----------------');
+
+            if substrb(v_idx_keys, -1) = '!' then
+              v_idx_keys := substrb(v_idx_keys, 1, length(v_idx_keys) - 1);
+              dbms_output.put_line('create UNIQUE index ' || v_destname ||
+                                   '.IDXP_' || v_tabname || '_' ||
+                                   v_obj_count || ' on ' || v_destname || '.' ||
+                                   v_tabname || '(' || v_idx_keys || ')');
+            else
+              dbms_output.put_line('create index ' || v_destname ||
+                                   '.IDX_' || v_tabname || '_' ||
+                                   v_obj_count || ' on ' || v_destname || '.' ||
+                                   v_tabname || '(' || v_idx_keys || ')');
+            end if;
+
+            if v_part_flag = 0 then
+
+              begin
+                select bytes / 1024 / 1024
+                  into v_init_val
+                  from dba_segments
+                 where owner = v_username
+                   and segment_type like '%INDEX%'
+                   and segment_name = v_tabname;
+              exception
+                when no_data_found then
+                  v_init_val := 10;
+              end;
+
+              if v_init_val < 1 then
+                v_init_val := 1;
+              else
+                v_init_val := floor(v_init_val / 4) + 2;
+              end if;
+
+              v_space_name := 'I_CUST20';
+              dbms_output.put_line('tablespace ' || v_space_name);
+              dbms_output.put_line('INITRANS 20');
+              dbms_output.put_line('STORAGE');
+              dbms_output.put_line('(');
+              dbms_output.put_line('   INITIAL ' || v_init_val || 'M');
+              dbms_output.put_line(')');
+
+            else
+
+              dbms_output.put_line('INITRANS 30');
+              dbms_output.put_line('LOCAL');
+              dbms_output.put_line('(');
+
+              v_part_count := 0;
+              for bb in cur_parts loop
+                v_part_name  := bb.partition_name;
+                v_space_name := bb.tablespace_name;
+                v_part_count := v_part_count + 1;
+
+                begin
+                  select bytes / 1024 / 1024
+                    into v_init_val
+                    from dba_segments
+                   where owner = v_username
+                     and segment_type like '%INDEX%'
+                     and segment_name = v_tabname;
+                exception
+                  when no_data_found then
+                    v_init_val := 10;
+                end;
+                if v_init_val < 10 then
+                  v_init_val := 1;
+                else
+                  v_init_val := floor(v_init_val / 4) + 10;
+                end if;
+
+                if v_tabspace_pos > 6 then
+                  v_tabspace_pos := 1;
+                else
+                  v_tabspace_pos := v_tabspace_pos + 1;
+                end if;
+                v_space_name := 'I_LOG20_0' || v_tabspace_pos;
+
+                --PARTITION  PART1 TABLESPACE  OLD_INDEX_P_01
+                dbms_output.put_line('  PARTITION ' || v_part_name ||
+                                     ' TABLESPACE ' || v_space_name);
+                dbms_output.put_line('  STORAGE');
+                dbms_output.put_line('  (');
+                dbms_output.put_line('     INITIAL ' || v_init_val || 'M');
+                dbms_output.put_line('     NEXT 5M');
+                if v_part_num = v_part_count then
+                  dbms_output.put_line('  )');
+                else
+                  dbms_output.put_line('  ),');
+                end if;
+
+              end loop;
+              dbms_output.put_line(')');
+              dbms_output.put_line('PARALLEL 6');
+
+            end if;
+            dbms_output.put_line('NOLOGGING');
+            dbms_output.put_line('/');
+            dbms_output.new_line;
+          end loop;
+        end loop;
+      else
+        --one index
+        null;
+      end if;
+
+      --dbms_output.fclose(v_file_handle);
+      /* END IF;*/
+
+    exception
+      when others then
+        --v_resultmesg := sqlerrm;
+        --utl_file.fclose(v_file_handle);
+        null;
+    end;
+
+  exception
+    when others then
+      return;
+  end p_create_tab_idx_script;
+
+  -----------------------------------------------------------
+
+  --------------------------------------------------------------
+
+  procedure p_trs_rename(i_region in number) as
+    v_log   pkg_dtlog.log_record; --
+    v_err   pkg_dtlog.err_record; --
+    v_place dt_errlog_detail.err_place%type; --
+
+    cursor cur_tab is
+      select t.dest_owner, t.table_name, t.comments
+        from dt_export_tables t
+       where t.step = 95;
+
+    v_sql2 varchar2(4000);
+    v_sql1 varchar2(4000);
+  begin
+    v_log.region        := i_region; --
+    v_log.oper_id       := pkg_dtlog.f_get_operid; --
+    v_log.object_name   := 'P_TRS_RENAME'; --
+    v_log.register_name := 'P_TRS_RENAME'; --
+    v_log.loop_num      := 0; --
+    v_log.success_num   := 0; --
+    v_log.fail_num      := 0; --
+    v_log.batch_num     := 0; --
+
+    pkg_dtlog.p_register(v_log);
+
+    for aa in cur_tab loop
+      v_log.loop_num := v_log.loop_num + 1;
+      v_sql1         := 'drop table ' || aa.dest_owner || '.' ||
+                        aa.comments;
+      v_sql2         := 'alter table ' || aa.dest_owner || '.' ||
+                        aa.table_name || ' rename to ' || aa.dest_owner || '.' ||
+                        aa.comments;
+      begin
+        begin
+          execute immediate v_sql1;
+          commit;
+        exception
+          when others then
+            v_err.ora_msg := trim(sqlerrm);
+            v_err.ora_err := to_char(sqlcode);
+        end;
+        execute immediate v_sql2;
+      exception
+        when others then
+          --
+          v_log.fail_num := v_log.fail_num + 1;
+          --
+          v_err.key_name  := 'user.table';
+          v_err.key_value := aa.dest_owner || '.' || aa.table_name;
+          v_err.err_place := v_place;
+          v_err.ora_err   := to_char(sqlcode);
+          v_err.ora_msg   := trim(sqlerrm);
+
+          --  ()
+          pkg_dtlog.p_exception(v_log, v_err);
+      end;
+      v_log.success_num := v_log.success_num + 1;
+    end loop;
+    pkg_dtlog.p_complete(v_log);
+
+  end p_trs_rename;
+
+  procedure p_get_max_min_partname
+  ----------------------------------------------------------------------------
+    --    :                                                       --
+    --    : ,                                               --
+    ----------------------------------------------------------------------------
+  (i_region         in varchar2, -- varchar2(10)
+   i_procedure_name in varchar2, -- varchar2(30)
+   i_table_owner    in varchar2, -- varchar2(30)
+   i_table_name     in varchar2, -- varchar2(30)
+   i_field_name     in varchar2, -- varchar2(30)
+   i_ind            in number, -- number(3)
+   o_start_id       out varchar2, -- varchar2(64) ID
+   o_end_id         out varchar2, -- varchar2(64) ID
+   o_partition_name out varchar2 -- varchar2(64)
+   ) as
+  begin
+    select start_id, end_id, part_name
+      into o_start_id, o_end_id, o_partition_name
+      from dt_divide_ind
+     where region = i_region
+       and upper(procedure_name) = upper(i_procedure_name)
+       and upper(table_owner) = upper(i_table_owner)
+       and upper(table_name) = upper(i_table_name)
+       and field_name = i_field_name
+       and ind = i_ind
+       and upper(divide_type) = 'INDEX';
+
+    -- :
+    --         dt_divide_ind
+    --         dt_runlogdivide_status1
+    --  dt_runlogdivide_status
+    if (i_ind = 1) then
+      begin
+        update dt_runlog
+           set divide_status = 1
+         where region = i_region
+           and upper(object_name) = upper(i_procedure_name);
+        commit;
+      exception
+        when others then
+          null;
+      end;
+    end if;
+  exception
+    when others then
+      o_start_id       := null;
+      o_end_id         := null;
+      o_partition_name := null;
+
+  end p_get_max_min_partname;
+  -----------------------------------------------------------------------------------------
+  procedure p_tool_get_incr_tab(i_owner varchar2, i_tab_name varchar2) as
+    v_sql varchar2(4000);
+    --v_part_cnt   number;
+    v_cnt        number;
+    v_orig_owner varchar2(32);
+    v_table_name varchar2(32);
+    --cursor cur_tab is select distinct orig_owner, table_name from dt_export_tables t where t.orig_owner <> 'ACCOUNT';
+  begin
+    --for aa in cur_tab loop
+    v_orig_owner := i_owner;
+    v_table_name := i_tab_name;
+    v_sql        := 'select count(1) from ' || v_orig_owner || '.' ||
+                    v_table_name || '@tobcv';
+    begin
+      execute immediate v_sql
+        into v_cnt;
+      if v_cnt >= 5000000 then
+        insert into dt_increment_tab
+        values
+          (v_orig_owner, v_table_name, v_cnt, 0, null, null, null);
+        commit;
+      end if;
+    exception
+      when others then
+        --v_cnt := 0;
+        null;
+    end;
+    begin
+      /* select t.partition_count into v_part_cnt from dba_part_tables@to_yybcv.hebei.mobile.com t
+      where t.owner = v_orig_owner and t.table_name = v_table_name;
+      update dt_increment_tab set part_count = v_part_cnt
+      where owner = v_orig_owner and table_name = v_table_name;*/
+      commit;
+    exception
+      when others then
+        null;
+    end;
+    --end loop;
+  end p_tool_get_incr_tab;
+  ------------------------------------------------------------------
+
+  procedure p_tool_batchrowid_del(i_tabowner    varchar2,
+                                  i_tabname     varchar2,
+                                  i_requirement varchar2) as
+
+    v_place  varchar2(128);
+    v_errmsg varchar2(128);
+
+    type ref_cur1 is ref cursor;
+    v_del_cursor ref_cur1;
+
+    v_select_sql varchar2(6000);
+    v_delete_sql varchar2(6000);
+
+    -- Start  define  ---------------------------------
+    type t_rowid is table of rowid index by pls_integer;
+    v_rowid t_rowid;
+
+    v_select_idx number(10);
+    -- Finish define  ---------------------------------
+
+    v_limit_rows  number(10);
+    v_loop_num    number;
+    v_fail_num    number;
+    v_success_num number;
+
+    bulk_errors exception;
+    pragma exception_init(bulk_errors, -24381);
+
+  begin
+
+    v_limit_rows := 50000;
+
+    v_loop_num    := 0;
+    v_fail_num    := 0;
+    v_success_num := 0;
+
+    if (i_requirement is null) then
+      v_select_sql := 'select  /*+ rule */ rowid from  ' || i_tabowner || '.' ||
+                      i_tabname;
+    else
+      v_select_sql := 'select  /*+ rule */ rowid from  ' || i_tabowner || '.' ||
+                      i_tabname || ' where ' || i_requirement;
+    end if;
+
+    v_delete_sql := 'delete /*+ rule */ ' || i_tabowner || '.' || i_tabname ||
+                    ' where rowid = :1 ';
+
+    dbms_output.put_line('   ');
+    dbms_output.put_line('v_select_sql[' || v_select_sql || ']');
+    dbms_output.put_line('v_delete_sql[' || v_delete_sql || ']');
+
+    dbms_output.put_line('   ');
+    dbms_output.put_line('start time[' ||
+                         to_char(sysdate, 'YYYY-MM-DD HH24:MI:SS') || ']');
+    dbms_output.put_line('   ');
+
+    open v_del_cursor for v_select_sql;
+    loop
+      fetch v_del_cursor bulk collect
+        into v_rowid limit v_limit_rows;
+      exit when v_rowid.count = 0;
+
+      v_loop_num := v_loop_num + v_rowid.count;
+
+      if (v_rowid.count <> 0) then
+        v_place := ' execute delete statement ';
+        begin
+          forall v_select_idx in v_rowid.first .. v_rowid.last ---
+                                                  save exceptions execute
+                                                  immediate v_delete_sql
+                                                  using
+                                                  v_rowid(v_select_idx)
+            ;
+
+          for indx in v_rowid.first .. v_rowid.last loop
+            v_success_num := v_success_num + sql%bulk_rowcount(indx);
+          end loop;
+          commit;
+
+        exception
+          when bulk_errors then
+            if (sql%bulk_exceptions.count > 0) then
+              for indx in 1 .. sql%bulk_exceptions.count loop
+                v_fail_num := v_fail_num + 1;
+
+                v_errmsg := 'Error ' || indx || ' occurred during ' ||
+                            'iteration ' || sql%bulk_exceptions(indx)
+                           .error_index || substr(sqlerrm(-1 * sql%bulk_exceptions(indx)
+                                                          .error_code),
+                                                  1,
+                                                  9) || 'Oracle error is' ||
+                            sqlerrm(-1 * sql%bulk_exceptions(indx)
+                                    .error_code);
+
+                dbms_output.put_line('rowid[' ||
+                                     v_rowid(sql%bulk_exceptions(indx)
+                                             .error_index) || '] ' ||
+                                     v_errmsg);
+
+              end loop;
+            end if;
+        end;
+
+      end if;
+    end loop; ---end open v_del_cursor for v_select_sql;
+
+    --  ()
+    dbms_output.put_line('delete v_loop_num[' || v_loop_num ||
+                         '] v_success_num [' || v_success_num ||
+                         '] v_fail_num [' || v_fail_num || ']');
+    commit;
+
+    dbms_output.put_line('   ');
+    dbms_output.put_line('end  time[' ||
+                         to_char(sysdate, 'YYYY-MM-DD HH24:MI:SS') || ']');
+
+    if v_del_cursor%isopen then
+      close v_del_cursor;
+    end if;
+
+    --  ()
+    commit;
+
+  exception
+    when others then
+      --
+      v_errmsg := '';
+      dbms_output.put_line(v_errmsg);
+
+  end;
+
+  /************************************************************************************************************/
+  /*
+    insert into dt_divide_ind
+    select '999', 'P_POST_CART_REPONSE', t.table_owner, t.table_name, 'REQOID', t.partition_name,
+    t.partition_position, t.partition_name, t.partition_name, 'PART', null, sysdate,
+    t.partition_position  from dba_tab_partitions t
+    where  t.table_name = 'CS_REC_CARTRESP';
+  */
+  /************************************************************************************************************/
+
+  procedure p_ini_dt_divide_ind_part(in_procedure_name varchar2,
+                                     in_table_owner    varchar2,
+                                     in_table_name     varchar2,
+                                     in_field_name     varchar2,
+                                     in_divide_type    varchar2,
+                                     in_region         in number default 999) is
+
+    v_insert_sql varchar2(4000);
+
+    v_del_dt_runlog_sql varchar2(4000);
+
+    v_dt_divide_ind dt_divide_ind%rowtype;
+
+  begin
+
+    v_del_dt_runlog_sql := ' delete from dt_divide_ind a  where a.PROCEDURE_NAME = :1 and TABLE_OWNER=:2 and TABLE_NAME=:3
+    and DIVIDE_TYPE = :4';
+
+    begin
+      execute immediate v_del_dt_runlog_sql
+        using in_procedure_name, in_table_owner, in_table_name, in_divide_type;
+      commit;
+    exception
+      when others then
+        null;
+    end;
+
+    v_dt_divide_ind := null;
+
+    for s_partitions in (select *
+                           from dba_tab_partitions t
+                          where t.table_name = in_table_name
+                            and t.table_owner = in_table_owner) loop
+
+      v_dt_divide_ind.region         := in_region;
+      v_dt_divide_ind.procedure_name := in_procedure_name;
+      v_dt_divide_ind.table_owner    := in_table_owner;
+      v_dt_divide_ind.table_name     := in_table_name;
+      v_dt_divide_ind.field_name     := in_field_name;
+      v_dt_divide_ind.part_name      := s_partitions.partition_name;
+      v_dt_divide_ind.ind            := s_partitions.partition_position;
+      v_dt_divide_ind.start_id       := s_partitions.partition_name;
+      v_dt_divide_ind.end_id         := s_partitions.partition_name;
+
+      v_dt_divide_ind.divide_type := 'PART';
+      v_dt_divide_ind.run_date    := sysdate;
+      v_dt_divide_ind.sortid      := s_partitions.partition_position;
+      insert into dt_divide_ind values v_dt_divide_ind;
+    end loop;
+    commit;
+
+  end p_ini_dt_divide_ind_part;
+
+  /**************************************************************************************************************/
+
+  -- querying the table of rel_table to get the user of target table
+
+  function f_get_tar_table_owner(i_tar_tablename in varchar2) return varchar2 is
+
+    ownertable varchar2(100) := null;
+
+  begin
+    begin
+      select tar_table_owner
+        into ownertable
+        from DMI_DEL_COMMON_REL_TABLE
+       where tar_table_name = upper(i_tar_tablename);
+    exception
+      when others then
+        dbms_output.put_line('query from table rel_table error');
+    end;
+
+    return ownertable;
+
+  end f_get_tar_table_owner;
+
+  /**************************************************************************************************************/
+
+  -- modify id sequence now value
+  procedure p_update_seq_mge(p_now_value  in number,
+                             p_field_name in varchar2,
+                             p_seq_name   in varchar2) is
+    l_err_mag varchar2(1000) := null;
+
+  begin
+    update MG_IDS_SEQ
+       set NOW_VALUE = p_now_value
+     WHERE FIELD_NAME = upper(p_field_name)
+       AND SEQ_NAME = upper(p_seq_name);
+    commit;
+  exception
+    when others then
+      dbms_output.put_line('update table MG_IDS_SEQ error' ||
+                           trim(SQLERRM));
+      l_err_mag := trim(SQLERRM);
+  end p_update_seq_mge;
+
+end pkg_dtpub;
+/
