@@ -1,0 +1,35 @@
+domain	table name	Discription
+Custome	INF_PARTY	Basic Party Information
+	INF_PARTY_CERTIFICATE	Party Certificate Information
+	INF_CUSTOMER	Customer basic information
+	INF_INDIVIDUAL	Individual customer basic information
+	INF_CONTACT_PERSON	Contact Information
+	INF_ADDRESS	Address Information
+	INF_ADDR_REFERENCE	Address Reference Relationship Information
+Account	INF_ACCOUNT	Account basic information
+	INF_ACCT_BILL_CYCLE	Account Bill Cycle Information
+	INF_ACCT_CREDIT_LIMIT	Account Credit Limit Information
+	INF_ACCT_OWNERSHIP	Account Ownership Information
+	INF_PAYMENT_PLAN	Account Automatic Payment Plan Information
+	INF_PAYMENT_RELATION	Account Payment Relationship Information
+	INF_PAYMENT_LIMIT	Account Payment Limit Information
+	INF_PAYMENT_CHANNEL	Account Payment Channel Information
+Subscriber	INF_SUBSCRIBER	Subscriber basic information
+	INF_PROD_INST_IDEN	Product Identifier Entity
+	INF_PROD_INST_GOODS_EX	Resource Entity
+	INF_SUBSCRIBER_MNP	MNP Entity
+	INF_ENTITY_DELAY_TASK_EX 	Expiration Task Information
+	INF_ENTITY_STATE_CHG_EX	Entity state change record 
+Subscription	INF_OFFERING_INST	Offering Instance Entity
+	INF_OFFERING_PROP	Offering Attribute Entity
+	INF_PROD_INST	Product Instance Entity
+	INF_PROD_PROP	Product Attribute Entity
+	INF_PROD_ROLE_REL	Product Role Relationship Entity
+Inventory	IM_ENTI_TELNUM	Msisdn basic information
+	IM_ENTI_IMSI	Imsi basic information
+	IM_ENTI_MOBTEL	Historical Mobile Phone Information
+	IM_ENTI_PACKAGE	Package Resource Information]
+System	SYS_USER	Subscriber information
+	SYS_USER_LOGINID	Account information
+	SYS_USER_PWD	User password
+	INF_BLACKLIST	Blacklist Information
