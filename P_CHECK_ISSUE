@@ -1,0 +1,75 @@
+create or replace procedure zy_exe.P_CHECK_ISSUE is
+  v_sql   varchar2(4000);
+  v_cnt   number(10):= 0;
+  v_status  varchar2(10);
+
+begin
+  v_sql := 'truncate table issue_check_result';
+  execute immediate v_sql;
+  
+  for check_issue in (select * from issue_check_sql where check_flag = 'Y' order by issue_id) loop
+    v_sql := check_issue.check_sql;
+    execute immediate v_sql into v_cnt;
+    if v_cnt = 0 then
+      v_status := 'CLOSE';
+    else
+      v_status := 'OPEN';
+    end if;
+
+    insert into issue_check_result
+    (issue_id,group_id,check_sql,issue_count,status,check_date)
+    values (check_issue.issue_id,
+           check_issue.group_id,
+           check_issue.check_sql,
+           v_cnt,
+           v_status,
+           sysdate);
+    commit;
+  end loop;
+
+end P_CHECK_ISSUE;
+
+-- Create table
+create table zy_exe.ISSUE_CHECK_SQL
+(
+  issue_id   NUMBER(4),
+  group_id   NUMBER(4),
+  check_sql  VARCHAR2(4000),
+  sql_desc   VARCHAR2(64),
+  check_flag VARCHAR2(1),
+  remark     VARCHAR2(32)
+)
+tablespace TSD_SOURCE1_DATA
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+
+-- Create table
+create table zy_exe.ISSUE_CHECK_RESULT
+(
+  issue_id    NUMBER(4),
+  group_id    NUMBER(4),
+  check_sql   VARCHAR2(4000),
+  issue_count NUMBER(16),
+  status      VARCHAR2(16),
+  check_date  DATE,
+  remark      VARCHAR2(32)
+)
+tablespace TSD_SOURCE1_DATA
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
