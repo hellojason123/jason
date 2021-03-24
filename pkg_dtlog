@@ -1,0 +1,596 @@
+create or replace package exe_fixed.pkg_dtlog is
+  /**********************************************************************************
+  NAME:       PKG_DTLOG
+  PURPOSE:    logging framework
+  REVISIONS:
+  Ver        Date         Author                  Description
+  ---------  ----------  ----------------------   ------------------------------------
+  D1.0       2008-06-02   guihongliang 126661     1.initialize
+  D2.0       2013-10-15   guihongliang 126661     1.initialize
+  NOTES:
+
+  **********************************************************************************/
+
+  outputtype_err varchar2(20) := 'Error: ';
+  outputtype_war varchar2(20) := 'Warning: ';
+  outputtype_hin varchar2(20) := 'Hint: ';
+  outputtype_top varchar2(20) := 'TopTier: ';
+
+  type log_record is record -- Log records definition
+  (
+    taskid  dt_runlog_detail.taskid%type,
+    region  dt_runlog_detail.region%type, -- Region code
+    oper_id dt_runlog_detail.oper_id%type, -- Operation sequence number
+
+    object_name        dt_runlog_detail.object_name%type, -- Program name
+    ind_procedure_name dt_runlog_detail.ind_procedure_name%type, ---ind_procedure_name
+    register_name      dt_runlog_detail.register_name%type, -- Registration Program name
+    loop_num           dt_runlog_detail.loop_num%type, -- loop count
+    success_num        dt_runlog_detail.success_num%type, -- success count
+    fail_num           dt_runlog_detail.fail_num%type, -- fail count
+    batch_num          dt_runlog_detail.batch_num%type, -- How much time to submit
+    tns_name           dt_runlog_detail.tns_name%type, -- TNS name
+    -------------user ----
+    new_yyuser   varchar2(32),
+    new_dictuser varchar2(32),
+    old_yyuser   varchar2(32),
+    old_dictuser varchar2(32));
+
+  type err_record is record -- error Log records definition
+  (
+    key_name  dt_errlog_detail.key_name%type, -- key name
+    key_value dt_errlog_detail.key_value%type, -- key value
+    err_place dt_errlog_detail.err_place%type, -- error description
+    ora_err   dt_errlog_detail.ora_err%type, -- ORACLE error code
+    ora_msg   dt_errlog_detail.ora_msg%type -- ORACLE error message
+    );
+
+  ----------------------------------------------------------------------------
+  -- type:          : function                                            --
+  -- description   :  Take operation ID                                   --
+  ----------------------------------------------------------------------------
+  function f_get_operid return number;
+
+  function f_get_oldyyuser(in_region in number) return varchar2;
+  function f_get_newyyuser(in_region in number) return varchar2;
+  function f_get_olddictuser(in_region in number) return varchar2;
+  function f_get_newdictuser(in_region in number) return varchar2;
+
+  function f_create_log_record(v_name   in varchar2,
+                               i_region in number,
+                               i_index  in number,
+                               i_blocks in number) return log_record;
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                             --
+  -- description   :  rollback changes and teminate the procedure           --
+  ----------------------------------------------------------------------------
+  procedure p_abort(i_log in out nocopy log_record, i_piece in number);
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                             --
+  -- description   :  rollback changes and teminate the procedure           --
+  ----------------------------------------------------------------------------
+  procedure p_abnormal(i_log     in out nocopy log_record,
+                       i_rowid   in rowid,
+                       i_errcode in varchar2,
+                       i_errmsg  in varchar2);
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                            --
+  -- description   :  Registered the Procedure                             --
+  ----------------------------------------------------------------------------
+  procedure p_register(i_log in out log_record);
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                            --
+  -- description   :  Updated running log data                             --
+  ----------------------------------------------------------------------------
+  procedure p_commit(i_log in log_record);
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                            --
+  -- description   :  Updated log to the table of complete data            --
+  ----------------------------------------------------------------------------
+  procedure p_complete(i_log in log_record);
+  ----------------------------------------------------------------------------
+  -- type:          : Procedure                                            --
+  -- description   :  Updated log to the table of exception data           --
+  ----------------------------------------------------------------------------
+  procedure p_exception(i_log in log_record, i_err in err_record);
+
+end pkg_dtlog;
+/
+
+create or replace package body exe_fixed.pkg_dtlog is
+
+  -----------------------------------------------------------
+  function f_get_operid return number is
+    v_oper_id dt_runlog_detail.oper_id%type;
+  begin
+    begin
+      v_oper_id := DT_DMTOOL_OPERID.nextval;
+    exception
+      when others then
+        v_oper_id := -1;
+    end;
+    return v_oper_id;
+  end f_get_operid;
+  --f_get_operid ---------------------------------------------------------
+
+  --  f_get_NewDBuser
+  function f_get_newyyuser(in_region in number) return varchar2 is
+    v_ret varchar2(32);
+    v_sql varchar2(1024);
+  begin
+    v_sql := 'select new_yyuser from dt_region where region = :in_region ';
+
+    execute immediate v_sql
+      into v_ret
+      using in_region;
+    return v_ret;
+  end f_get_newyyuser;
+  ---------------------------------------------------
+
+  function f_get_oldyyuser(in_region in number) return varchar2 is
+    v_ret varchar2(32);
+    v_sql varchar2(1024);
+  begin
+    v_sql := 'select old_yyuser from dt_region where region = :in_region ';
+    execute immediate v_sql
+      into v_ret
+      using in_region;
+
+    return v_ret;
+  end f_get_oldyyuser;
+  ---------------------------------------------------
+  function f_get_olddictuser(in_region in number)
+
+   return varchar2 is
+    v_ret varchar2(32);
+    v_sql varchar2(1024);
+  begin
+    v_sql := 'select old_dictuser from dt_region where region = :in_region ';
+    execute immediate v_sql
+      into v_ret
+      using in_region;
+    return v_ret;
+  end f_get_olddictuser;
+  ---------------------------------------------------
+
+  function f_get_newdictuser(in_region in number) return varchar2 is
+    v_ret varchar2(32);
+    v_sql varchar2(1024);
+  begin
+    v_sql := 'select new_dictuser from dt_region where region = :in_region ';
+    execute immediate v_sql
+      into v_ret
+      using in_region;
+    return v_ret;
+  end f_get_newdictuser;
+  ---------------------------------------------------
+
+  function f_create_log_record(v_name   in varchar2,
+                               i_region in number,
+                               i_index  in number,
+                               i_blocks in number) return log_record is
+    v_log   pkg_dtlog.log_record;
+    v_obj   varchar2(128);
+    v_owner varchar2(32);
+    v_line  number;
+    v_call  varchar2(1024);
+  begin
+    -- initialization
+    owa_util.who_called_me(v_owner, v_obj, v_line, v_call);
+    if (upper(v_call)) = 'PACKAGE BODY' then
+      v_log.object_name := v_obj || '.' || v_name;
+    else
+      v_log.object_name := v_name;
+    end if;
+    v_log.register_name := v_log.object_name || '(' || i_region || ', ' ||
+                           i_index || ')';
+    v_log.region        := i_region;
+    v_log.oper_id       := f_get_operid;
+    v_log.loop_num      := 0;
+    v_log.success_num   := 0;
+    v_log.fail_num      := 0;
+    v_log.batch_num     := i_blocks;
+    p_register(v_log);
+    return v_log;
+  end;
+
+  procedure p_abort(i_log in out nocopy log_record, i_piece in number) is
+    v_err err_record;
+  begin
+    rollback;
+
+    if i_log.oper_id is null then
+      raise_application_error(-20001,
+                              dbms_utility.format_error_stack ||
+                              dbms_utility.format_error_backtrace);
+    end if;
+
+    v_err.key_name  := 'Abort Piece';
+    v_err.key_value := i_piece;
+    v_err.ora_err   := sqlcode;
+    v_err.ora_msg   := sqlerrm;
+    v_err.err_place := dbms_utility.format_error_stack ||
+                       dbms_utility.format_error_backtrace;
+    p_exception(i_log, v_err);
+    p_complete(i_log);
+  end;
+
+  procedure p_abnormal(i_log     in out nocopy log_record,
+                       i_rowid   in rowid,
+                       i_errcode in varchar2,
+                       i_errmsg  in varchar2) is
+    v_err err_record;
+  begin
+
+    if i_log.oper_id is null then
+      raise_application_error(-20001,
+                              dbms_utility.format_error_stack ||
+                              dbms_utility.format_error_backtrace);
+    end if;
+
+    v_err.key_name  := 'ROWID';
+    v_err.key_value := i_rowid;
+    v_err.ora_err   := i_errcode;
+    v_err.ora_msg   := i_errmsg;
+    v_err.err_place := dbms_utility.format_error_stack ||
+                       dbms_utility.format_error_backtrace;
+    p_exception(i_log, v_err);
+  end;
+
+  procedure p_register(i_log in out log_record) as
+
+    v_del_sql    varchar2(4000);
+    v_insert_sql varchar2(4000);
+
+    v_taskid        dt_runlog_detail.taskid%type;
+    v_group_id      dt_runlog_detail.group_id%type;
+    v_priority_id   dt_runlog_detail.priority_id%type;
+    v_run_type      dt_runlog_detail.run_type%type;
+    v_session_id    dt_runlog_detail.session_id%type;
+    v_instance_name dt_runlog_detail.instance_name%type;
+    v_machine_name  dt_runlog_detail.machine_name%type;
+    v_logtab_id     dt_runlog_detail.logtab_id%type;
+    v_tns_name      dt_runlog_detail.tns_name%type;
+    --v_str           dt_errlog_detail.err_place%type;
+
+  begin
+
+    begin
+
+      ---REGION, GROUP_ID,OBJECT_NAME, REGISTER_NAME=
+      v_insert_sql := ' insert into DT_RUNLOG_DETAIL_HIS  ' || ---
+                      ' select /*+ INDEX(dd,IDX_DETAIL_OBJECT_NAME) */
+                         taskid,
+                         nvl(region,''999''),
+                         oper_id,
+                         object_name,
+                         ind_procedure_name,
+                         register_name,
+                         group_id,
+                         priority_id,
+                         run_type,
+                         loop_num,
+                         success_num,
+                         fail_num,
+                         batch_num,
+                         last_update,
+                         run_status,
+                         start_time,
+                         end_time,
+                         session_id,
+                         instance_name,
+                         machine_name,
+                         remark,
+                         logtab_id,
+                         tns_name,
+                         sysdate as input_time from dt_runlog_detail dd ' || ---
+                      ' where dd.region = :region ' || ---
+                      ' and dd.object_name = :object_name ' || ---
+                      ' and dd.register_name = :register_name   ';
+
+      execute immediate v_insert_sql
+        using i_log.region, i_log.object_name, i_log.register_name;
+
+      v_del_sql := ' delete /*+ INDEX(dd,IDX_DETAIL_OBJECT_NAME) */ from DT_RUNLOG_DETAIL dd  ' || ---
+                   ' where dd.region = :region and dd.object_name = :object_name
+                   and dd.register_name = :register_name ';
+
+      execute immediate v_del_sql
+        using i_log.region, i_log.object_name, i_log.register_name;
+      commit;
+
+    exception
+      when others then
+        null;
+    end;
+
+    begin
+      v_group_id    := null;
+      v_priority_id := null;
+      v_run_type    := null;
+      v_logtab_id   := null;
+
+      select /*+ rule */
+       taskid, group_id, priority_id, run_type, logtab_id, tns_name
+        into v_taskid,
+             v_group_id,
+             v_priority_id,
+             v_run_type,
+             v_logtab_id,
+             v_tns_name
+        from (select /*+ rule */
+               *
+                from dt_runlog
+               where region = i_log.region
+                 and object_name = upper(i_log.object_name)
+               order by nvl(start_time, sysdate + 1) desc)
+       where rownum = 1;
+
+    exception
+      when others then
+        begin
+          select /*+ rule */
+           taskid, group_id, priority_id, run_type, logtab_id, tns_name
+            into v_taskid,
+                 v_group_id,
+                 v_priority_id,
+                 v_run_type,
+                 v_logtab_id,
+                 v_tns_name
+            from (select /*+ rule */
+                   *
+                    from dt_runcfg
+                   where region = nvl(i_log.region, '999')
+                     and upper(object_name) = upper(i_log.object_name)
+                   order by group_id asc)
+           where rownum = 1;
+
+        exception
+          when others then
+            v_taskid      := i_log.oper_id;
+            v_group_id    := 999;
+            v_priority_id := 999;
+            v_run_type := case
+                            when instr(i_log.register_name, ',') > 0 then
+                             'PART'
+                            else
+                             'NORMAL'
+                          end;
+            v_logtab_id   := null;
+        end;
+    end;
+
+    begin
+      v_session_id := null;
+      select to_number(substr(dbms_session.unique_session_id, 1, 4), 'XXXX')
+        into v_session_id
+        from dual;
+    exception
+      when others then
+        v_session_id := null;
+    end;
+
+    begin
+      v_instance_name := null;
+      --v_str := 'select instance_name';
+      select instance_name into v_instance_name from v$instance;
+    exception
+      when others then
+        v_instance_name := null;
+    end;
+
+    begin
+      v_machine_name := null;
+      --v_str := 'select os_user';
+      select sys_context('USERENV', 'OS_USER')
+        into v_machine_name
+        from dual;
+    exception
+      when others then
+        v_machine_name := null;
+    end;
+    -- v_str := 'insert into dt_runlog_detail';
+    insert /*+ append */
+    into dt_runlog_detail nologging
+      (taskid,
+       region, --01 varchar2(10)  not null,
+       oper_id, --02 number(14)    not null,
+       object_name, --03 varchar2(40)  not null,
+       ind_procedure_name, ---004
+       register_name, --04 varchar2(40)  not null,
+       group_id, --05 number(3)     not null,
+       priority_id, --06 number(3)     not null,
+       run_type, --07 varchar2(18)  default 'NORMAL',    --(NORMAL,INDEX,PART,SHELL)
+       loop_num, --08 number(15),
+       success_num, --09 number(15),
+       fail_num, --10 number(15),
+       batch_num, --11 number(15),
+       last_update, --12 date,
+       run_status, --13 number(1),
+       start_time, --14 date,
+       end_time, --15 date,
+       session_id, --16 number,
+       instance_name, --17 varchar2(30),
+       machine_name, --18 varchar2(30)
+       logtab_id,
+       tns_name)
+    values
+      (nvl(i_log.taskid, v_taskid),
+       i_log.region, --01
+       i_log.oper_id, --02
+       i_log.object_name, --03
+       i_log.ind_procedure_name, ------004
+       i_log.register_name, --04
+       v_group_id, --05
+       v_priority_id, --06
+       v_run_type, --07
+       i_log.loop_num, --08
+       i_log.success_num, --09
+       i_log.fail_num, --10
+       i_log.batch_num, --11
+       sysdate, --12
+       1, --13
+       sysdate, --14
+       null, --15
+       v_session_id, --16
+       v_instance_name, --17
+       v_machine_name, --18
+       v_logtab_id, ---19
+       v_tns_name); --20
+
+    commit;
+  end p_register;
+  --p_register-----------------------------------------------------------
+
+  procedure p_commit
+  ----------------------------------------------------------------------------
+  (i_log in log_record) as
+    v_sql    varchar2(4000);
+    v_region dt_runlog_detail.region%type;
+  begin
+
+    if i_log.region is null then
+      v_region := 999;
+    else
+      v_region := i_log.region;
+    end if;
+
+    v_sql := ' update /*+ INDEX(aa,IDX_DT_RUNLOG_DETAIL) */ dt_runlog_detail aa ' || ---
+             ' set loop_num = :1 , success_num =:2, fail_num = :3, last_update = :4  ' || ---
+             ' where  region = :5 and oper_id = :6 ';
+
+    execute immediate v_sql
+      using i_log.loop_num, -- 01
+    i_log.success_num, -- 02
+    i_log.fail_num, -- 03
+    sysdate, --04
+    v_region, -- 05
+    i_log.oper_id; --06
+    commit;
+
+  end p_commit;
+  --p_commit-------------------------------------------------------------
+
+  procedure p_complete(i_log in log_record) as
+    v_all_nums      number;
+    v_complete_nums number;
+
+    v_group_id dt_runlog_detail.group_id%type;
+    v_TASKID   dt_runlog_detail.TASKID%type;
+    v_sql      varchar2(4000);
+    v_sql1     varchar2(4000);
+  begin
+
+    v_sql := ' update /*+ INDEX(aa,IDX_DT_RUNLOG_DETAIL) */ dt_runlog_detail aa ' || ---
+             ' set loop_num = :1 ,success_num   =:2,fail_num     = :3, ' || ----
+             ' last_update  = :4 ,end_time    = :5 ,' || ---
+             ' run_status   = 2  ' || ---
+             ' where  region = :6 and oper_id = :7 ';
+
+    v_sql1 := 'update /*+ INDEX(bb,IDX_DT_RUNLOG) */ dt_runlog bb
+               set finished_num = finished_num + 1
+               where region = :v1
+               and TASKID  = :V2';
+
+    v_TASKID := 0;
+
+    execute immediate v_sql
+      using i_log.loop_num, -- 01
+    i_log.success_num, -- 02
+    i_log.fail_num, -- 03
+    sysdate, --04
+    sysdate, -- 05
+    nvl(i_log.region, '999'), -- 06
+    i_log.oper_id; --07
+
+    select t.taskid
+      into v_TASKID
+      from dt_runlog_detail t
+     where region = nvl(i_log.region, '999')
+       and oper_id = i_log.oper_id;
+
+    execute immediate v_sql1
+      using nvl(i_log.region, '999'), v_TASKID;
+    commit;
+
+    begin
+      v_all_nums := 0;
+      v_group_id := 0;
+      select /*+ rule */
+       all_nums, group_id
+        into v_all_nums, v_group_id
+        from (select nvl(end_num, 1) - nvl(begin_num, 1) + 1 all_nums,
+                     group_id
+                from dt_runlog
+               where region = i_log.region
+                 and object_name = i_log.object_name
+               order by nvl(start_time, sysdate + 1) desc)
+       where rownum = 1;
+    exception
+      when others then
+        v_all_nums := 0;
+    end;
+
+    begin
+      v_complete_nums := 1;
+      select /*+ rule */
+       count(1)
+        into v_complete_nums
+        from dt_runlog_detail
+       where region = i_log.region
+         and object_name = i_log.object_name
+         and group_id = v_group_id
+         and run_status = 2;
+    exception
+      when others then
+        v_complete_nums := -1;
+    end;
+
+    if (v_complete_nums >= v_all_nums) then
+      update /*+ INDEX(bb,IDX_DT_RUNLOG) */ dt_runlog bb
+         set run_status = 2, ---
+             end_time   = sysdate
+       where region = i_log.region
+         and object_name = i_log.object_name;
+    end if;
+    commit;
+
+  end p_complete;
+
+  --p_complete-----------------------------------------------------------
+
+  procedure p_exception(i_log in log_record, i_err in err_record) as
+    v_insert_log varchar2(4000);
+  begin
+
+    v_insert_log := 'insert /*+ nologging */ into dt_errlog_detail nologging (' ||
+                    'region , ' || --01 varchar2(10)  not null,
+                    'oper_id        , ' || --02 number(14)    not null,
+                    'object_name    , ' || --03 varchar2(40)  not null,
+                    'register_name  , ' || --04 varchar2(40)  not null,
+                    'key_name       , ' || --05 varchar2(128),
+                    'key_value      , ' || --06 varchar2(128),
+                    'err_place      , ' || --07 varchar2(256),
+                    'ora_err        , ' || --08 varchar2(128),
+                    'ora_msg        , ' || --09 varchar2(4000),
+                    'err_time       ) ' || --10 date
+                    'values(:01,:02,:03,:04,:05,:06,:07 ,' || ---
+                    ':08,:09,:10) ';
+
+    execute immediate v_insert_log
+      using i_log.region, -- 01 varchar2(10)  not null,
+    i_log.oper_id, -- 02 number(14)    not null,
+    i_log.object_name, -- 03 varchar2(40)  not null,
+    i_log.register_name, -- 04 varchar2(40)  not null,
+    i_err.key_name, -- 05 varchar2(128),
+    i_err.key_value, -- 06 varchar2(128),
+    i_err.err_place, -- 07 varchar2(256),
+    i_err.ora_err, -- 08 varchar2(128),
+    i_err.ora_msg, -- 09 varchar2(4000),
+    sysdate; -- 10 date
+
+  end p_exception;
+
+end pkg_dtlog;
+/
+
