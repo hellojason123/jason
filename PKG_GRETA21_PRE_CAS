@@ -1,0 +1,959 @@
+create or replace package body PKG_GRETA21_PRE_CAS is
+  -----------------------------------------------------------------------------------
+  -- Author  : litao WX194320
+  -- Created : 2019-06-21
+  -- Description : For pre_cas table pretreatment
+  -----------------------------------------------------------------------------------
+
+  -----source table pretreatment
+  procedure P_PRE_SRC_TABLE(i_region in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_index                         number:=999;
+    v_tab_exists                    number:=0;
+    v_batchnum                      number:=10000;
+    v_sql                           varchar2(5000);
+  BEGIN
+
+    --create tranformation log --???????
+    v_log := pkg_dtlog.f_create_log_record('P_PRE_SRC_TABLE',i_region, i_index, v_batchnum);
+
+    
+
+    select count(*) into v_tab_exists from ALL_TABLES t where t.OWNER='SRC_MED' and t.TABLE_NAME='DM_P_OFFERING_MAP';
+     if v_tab_exists >0 then
+       execute immediate 'drop table SRC_MED.DM_P_OFFERING_MAP PURGE';
+      end if;
+        begin
+             v_sql := '
+             create table SRC_MED.dm_p_offering_map as
+              select b.o_id src_offering_id,
+                     b.o_id bes_offering_id,
+                     b.o_code offer_code,
+                     b.brand_id,
+                     b.brand_name,
+                     b.prod_id,
+                     b.prod_code
+                from src_med.mt_atomic_off b
+               where b.primary_flag = ''Y''
+                 and b.is_primary = ''Y'' ';
+
+             execute immediate v_sql;
+                  v_log.success_num := v_log.success_num + 1;
+          exception
+            when others then
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'CREATE TABLE ';
+              v_err.key_value := 'DM_P_OFFERING_MAP';
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'CREATE TABLE DM_P_OFFERING_MAP';
+              pkg_dtlog.p_exception(v_log, v_err);
+        end;
+
+     select count(*) into v_tab_exists from ALL_TABLES t where t.OWNER='SRC_MED' and t.TABLE_NAME='MID_SUBS_INFO';
+     if v_tab_exists >0 then
+       execute immediate 'drop table SRC_MED.MID_SUBS_INFO PURGE';
+      end if;
+        begin
+
+             v_sql :='
+             create table SRC_MED.mid_subs_info nologging parallel(degree 4) as
+             select a.service_number,a.subs_id,a.payment_type subs_payment_type,a.status,a.status_detail,a.network_type,a.status_date,a.eff_date subs_eff_date,a.preactivated_flag,
+             b.cust_id,c.acct_id,e.cust_id using_cust_id,e.ident_type_code using_id_type,e.ident_no using_id_no,
+             e.first_name using_first_name,e.middle_name using_middle_name,e.last_name using_last_name,e.second_last_name using_second_last_name
+             from s3_data.mid_subs a
+             left join s3_data.mid_cust b
+               on a.cust_id = b.cust_id and b.cust_role =''31415''
+             left join s3_data.mid_acct c
+               on a.acct_id = c.acct_id
+             left join s3_data.mid_actual_user d
+               on a.cust_id = d.subs_id
+             left join s3_data.mid_cust e
+               on e.ident_type_code = d.ident_type_code and e.ident_no = d.ident_no
+              and e.cust_role =''31416''';
+
+             execute immediate v_sql;
+             execute immediate 'alter table SRC_MED.mid_subs_info noparallel';
+                  v_log.success_num := v_log.success_num + 1;
+          exception
+            when others then
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'CREATE TABLE ';
+              v_err.key_value := 'MID_SUBS_INFO';
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'CREATE TABLE MID_SUBS_INFO';
+              pkg_dtlog.p_exception(v_log, v_err);
+        end;
+
+
+
+     select count(*) into v_tab_exists from ALL_TABLES t where t.OWNER='SRC_MED' and t.TABLE_NAME='PRE_CAS_TMP1';
+     if v_tab_exists >0 then
+       execute immediate 'drop table SRC_MED.PRE_CAS_TMP1 PURGE';
+      end if;
+        begin
+
+             v_sql :='
+             create table SRC_MED.pre_cas_tmp1
+             partition by hash (acct_id)(
+              partition p0
+                tablespace SRC_MED_DAT,
+              partition p1
+                tablespace SRC_MED_DAT,
+              partition p2
+                tablespace SRC_MED_DAT,
+              partition p3
+                tablespace SRC_MED_DAT,
+              partition p4
+                tablespace SRC_MED_DAT,
+              partition p5
+                tablespace SRC_MED_DAT,
+              partition p6
+                tablespace SRC_MED_DAT,
+              partition p7
+                tablespace SRC_MED_DAT,
+              partition p8
+                tablespace SRC_MED_DAT,
+              partition p9
+                tablespace SRC_MED_DAT,
+              partition p10
+                tablespace SRC_MED_DAT,
+              partition p11
+                tablespace SRC_MED_DAT,
+              partition p12
+                tablespace SRC_MED_DAT,
+              partition p13
+                tablespace SRC_MED_DAT,
+              partition p14
+                tablespace SRC_MED_DAT,
+              partition p15
+                tablespace SRC_MED_DAT,
+              partition p16
+                tablespace SRC_MED_DAT,
+              partition p17
+                tablespace SRC_MED_DAT,
+              partition p18
+                tablespace SRC_MED_DAT,
+              partition p19
+                tablespace SRC_MED_DAT,
+              partition p20
+                tablespace SRC_MED_DAT,
+              partition p21
+                tablespace SRC_MED_DAT,
+              partition p22
+                tablespace SRC_MED_DAT,
+              partition p23
+                tablespace SRC_MED_DAT,
+              partition p24
+                tablespace SRC_MED_DAT,
+              partition p25
+                tablespace SRC_MED_DAT,
+              partition p26
+                tablespace SRC_MED_DAT,
+              partition p27
+                tablespace SRC_MED_DAT,
+              partition p28
+                tablespace SRC_MED_DAT,
+              partition p29
+                tablespace SRC_MED_DAT,
+              partition p30
+                tablespace SRC_MED_DAT,
+              partition p31
+                tablespace SRC_MED_DAT
+            )  nologging parallel(degree 4) as
+             select a.service_number,a.subs_id,a.subs_payment_type,a.status,a.status_detail,a.network_type,a.status_date,a.subs_eff_date,a.preactivated_flag,
+             case when a.using_cust_id is null and a.service_number is not null then c.cust_id else a.using_cust_id end as using_cust_id,
+             case when a.using_cust_id is not null then ''Y'' when a.service_number is not null and a.using_cust_id is null then ''N'' end as actual_user_flag,
+             case when a.using_first_name is null and a.service_number is not null then c.first_name else a.using_first_name end as using_first_name,
+             case when a.using_middle_name is null and a.service_number is not null then c.middle_name else a.using_middle_name end as using_middle_name,
+             case when a.using_last_name is null and a.service_number is not null then c.last_name else a.using_last_name end as using_last_name,
+             case when a.using_second_last_name is null and a.service_number is not null then c.second_last_name else a.using_second_last_name end as using_second_last_name,
+             case when a.using_id_type is null and a.service_number is not null then c.ident_type_code else a.using_id_type end as using_id_type,
+             case when a.using_id_no is null and a.service_number is not null then c.ident_no else a.using_id_no end as using_id_no,
+             b.acct_id,b.payment_type acct_payment_type,b.bill_cycle_type_id,b.new_bill_cycle,b.eff_date acct_eff_date,c.cust_id,c.cust_role,c.cust_status,c.eff_date cust_eff_date,c.ident_type_code,c.ident_no
+             from SRC_MED.mid_subs_info a
+             full join s3_data.mid_acct b
+             on a.acct_id=b.acct_id
+             full join s3_data.mid_cust c
+             on b.cust_id=c.cust_id and c.cust_role =''31415''';
+
+             execute immediate v_sql;
+             execute immediate 'alter table SRC_MED.PRE_CAS_TMP1 noparallel';
+                  v_log.success_num := v_log.success_num + 1;
+          exception
+            when others then
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'CREATE TABLE ';
+              v_err.key_value := 'PRE_CAS_TMP1';
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'CREATE TABLE PRE_CAS_TMP1';
+              pkg_dtlog.p_exception(v_log, v_err);
+        end;
+
+      v_log.loop_num    := v_log.loop_num + 1;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+  exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, NULL);
+  end P_PRE_SRC_TABLE;
+
+  procedure P_DATA_CLEASING(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    v_idx_1                         number;
+    --v_EXTRACT_DATE                  DATE:=PKG_GRETA2_DFT.DEF_EXTRACT_DATE;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select n.*,row_number() OVER(partition by n.acct_id order by n.subs_id) acct_SN,
+              count(*) OVER(partition by n.acct_id) acct_cnt from SRC_MED.PRE_CAS_TMP1 n;
+
+    type tab_src_pre_cas_temp is table of src_cur%rowtype index by binary_integer;
+    v_src_pre_cas_temp tab_src_pre_cas_temp;
+    --tariff table
+    --target table
+    type tab_tar_pre_data is table of SRC_MED.PRE_CAS_ALL_INFO_TMP%rowtype index by binary_integer;
+    v_tar_pre_data tab_tar_pre_data;
+
+    type tab_tar_subs_acct is table of SRC_MED.SUBS_ACCT_ERR%rowtype index by binary_integer;
+    v_tar_subs_acct tab_tar_subs_acct;
+
+    --<<BEGIN: Customize variable definition area>>
+    v_migrate_flag  varchar2(1);
+    v_subs_migrate_flag varchar2(1);
+    v_reason_remark varchar2(50);
+    v_count_p_offer number(10);
+    v_count_sfsisdn number(10);
+    --v_count_imei    number(10);
+    --v_count_iccid   number(10);
+    --v_count_msisdn  number(10);
+    v_count_pay_channel number(10);
+    v_count_acct_bm number(10);
+    v_count_acct_addr number(10);
+    v_acct_id   number(22);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DATA_CLEASING',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 'SRC_MED', 'PRE_CAS_TMP1', i_index, v_partname);
+
+    v_src_sql := '
+    select m.*,row_number() OVER(partition by m.acct_id order by m.subs_id) acct_SN,
+              count(*) OVER(partition by m.acct_id) acct_cnt from SRC_MED.PRE_CAS_TMP1 partition('||v_partname||') m';
+
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_pre_cas_temp.delete;
+      v_tar_pre_data.delete;
+      v_tar_subs_acct.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_pre_cas_temp limit v_batchnum;
+      exit when v_src_pre_cas_temp.count = 0;
+
+      v_idx := 1;
+      v_idx_1 :=1;
+      if v_src_pre_cas_temp.count > 0 then
+        for i in v_src_pre_cas_temp.first .. v_src_pre_cas_temp.last loop
+
+        v_migrate_flag  := 'Y';
+        v_reason_remark := '';
+        v_subs_migrate_flag := '';
+
+        ----CAS relation check
+        if v_src_pre_cas_temp(i).acct_id is null or v_src_pre_cas_temp(i).cust_id is null then
+           v_migrate_flag  := 'N';
+           v_reason_remark := 'CAS relation';
+
+           goto lab;
+        end if;
+
+        ----acct pay channel
+        select /*+INDEX(a,I_PAY_CHANNEL_ACCT_ID)*/ count(1) into v_count_pay_channel from s3_data.mid_pay_channel a where acct_id =v_src_pre_cas_temp(i).acct_id;
+        if v_count_pay_channel = 0 then
+           v_migrate_flag  := 'N';
+           v_reason_remark := 'acct pay channel';
+
+           goto lab;
+        end if;
+
+        ---acct bm check
+        if v_src_pre_cas_temp(i).ACCT_PAYMENT_TYPE = '1' then
+            select /*+INDEX(b,I_ACCT_BM_ACCT_ID)*/ count(1) into v_count_acct_bm from s3_data.mid_acct_bm b where acct_id =v_src_pre_cas_temp(i).acct_id;
+            if v_count_acct_bm = 0 then
+             v_migrate_flag  := 'N';
+             v_reason_remark := 'acct bm';
+
+             goto lab;
+            end if;
+        end if;
+
+
+        ---acct billing addr check
+        if v_src_pre_cas_temp(i).ACCT_PAYMENT_TYPE = '1' then
+          select /*+ INDEX(c,I_ADDRESS_ENTITY_T_I_A)*/ count(1) into v_count_acct_addr from s3_data.mid_address c where entity_type='A' and addr_type='1' and entity_id=v_src_pre_cas_temp(i).acct_id;
+          if v_count_acct_addr = 0 then
+            v_migrate_flag  := 'N';
+            v_reason_remark := 'acct billing addr';
+
+            goto lab;
+          end if;
+        end if;
+
+        ----check subs_id
+        if v_src_pre_cas_temp(i).subs_id is null then
+           v_migrate_flag  := 'Y';
+           v_reason_remark := '';
+
+           goto lab;
+        end if;
+
+        ----subscriber status check
+        /*if v_src_pre_cas_temp(i).status = 'BAA' and v_src_pre_cas_temp(i).status_date < add_months(v_EXTRACT_DATE,-3) then
+           v_migrate_flag  := 'N';
+           v_reason_remark := 'subscriber expired';
+
+           goto lab;
+        end if;
+*/
+        ----p_offer_count
+        if v_src_pre_cas_temp(i).status in ('8','9') then
+           select /*+INDEX(d,I_OFFER_INST_P_S_O)*/ count(1) into v_count_p_offer from (select offering_id from s3_data.mid_offer_inst d where primary_flag='Y' and exp_date < extract_date and subs_id=v_src_pre_cas_temp(i).subs_id order by exp_date desc) where rownum=1;
+           if v_count_p_offer != 1 then
+              v_migrate_flag  := 'N';
+              v_subs_migrate_flag := 'N';
+              v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+              v_reason_remark := 'Deactive primary offer:'||v_count_p_offer;
+
+              goto lab;
+           end if;
+        end if;
+
+        if v_src_pre_cas_temp(i).status in ('2','3','4') then
+        select /*+INDEX(d,I_OFFER_INST_P_S_O)*/ count(1) into v_count_p_offer from s3_data.mid_offer_inst d where primary_flag='Y' and eff_date <= extract_date and exp_date > extract_date and subs_id=v_src_pre_cas_temp(i).subs_id;
+          if v_count_p_offer != 1 then
+             v_migrate_flag  := 'N';
+             v_subs_migrate_flag := 'N';
+             v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+             v_reason_remark := 'Active/Barring/Suspend primary offer:'||v_count_p_offer;
+
+             goto lab;
+          end if;
+        end if;
+
+        /*---IMEI check
+        select \*+INDEX(e,I_SUBS_IMEI_SUBS_ID)*\ count(1) into v_count_imei from s3_data.mid_subs_imei e where subs_id=v_src_pre_cas_temp(i).subs_id;
+        if v_count_imei != 1 then
+           v_migrate_flag  := 'N';
+           v_subs_migrate_flag := 'N';
+           v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+           v_reason_remark := 'imei';
+
+           goto lab;
+        end if;*/
+
+        ---Subscriber Fsisdn check
+        select count(1) into v_count_sfsisdn from s3_data.mid_subs e where subs_id=v_src_pre_cas_temp(i).subs_id;
+        if v_count_sfsisdn = 0 then
+           v_migrate_flag  := 'N';
+           v_subs_migrate_flag := 'N';
+           v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+           v_reason_remark := 'Subscriber Do Not Have Fsisdn';
+
+           goto lab;
+        end if;
+
+        /*---ICCID check
+        select \*+INDEX(f,I_SUBS_SIM_ICCID)*\ count(1) into v_count_iccid from s3_data.mid_sim f where iccid=v_src_pre_cas_temp(i).iccid;
+        if v_count_iccid != 1 then
+           v_migrate_flag  := 'N';
+           v_subs_migrate_flag := 'N';
+           v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+           v_reason_remark := 'sim';
+
+           goto lab;
+        end if;*/
+
+        ----fsisdn check
+        /*select \*+INDEX(g,I_mid_fsisdn_MSISDN)*\ count(1) into v_count_msisdn from s3_data.mid_fsisdn g where fsisdn=v_src_pre_cas_temp(i).service_number;
+        if v_count_msisdn != 1 then
+           v_migrate_flag  := 'N';
+           v_subs_migrate_flag := 'N';
+           v_acct_id := v_src_pre_cas_temp(i).ACCT_ID;
+           v_reason_remark := 'fsisdn';
+
+           goto lab;
+        end if;*/
+
+     <<lab>>
+        ---------------------
+        v_tar_pre_data(v_idx).SERVICE_NUMBER       := v_src_pre_cas_temp(i).SERVICE_NUMBER;
+        v_tar_pre_data(v_idx).SUBS_ID              := v_src_pre_cas_temp(i).SUBS_ID;
+        v_tar_pre_data(v_idx).SUBS_PAYMENT_TYPE    := v_src_pre_cas_temp(i).SUBS_PAYMENT_TYPE;
+        v_tar_pre_data(v_idx).STATUS               := v_src_pre_cas_temp(i).STATUS;
+        v_tar_pre_data(v_idx).NETWORK_TYPE         := v_src_pre_cas_temp(i).network_type;
+        v_tar_pre_data(v_idx).STATUS_DATE          := v_src_pre_cas_temp(i).STATUS_DATE;
+        v_tar_pre_data(v_idx).SUBS_EFF_DATE        := v_src_pre_cas_temp(i).SUBS_EFF_DATE;
+        v_tar_pre_data(v_idx).PREACTIVATED_FLAG    := v_src_pre_cas_temp(i).PREACTIVATED_FLAG;
+        --v_tar_pre_data(v_idx).IMSI                 := v_src_pre_cas_temp(i).IMSI;
+        --v_tar_pre_data(v_idx).ICCID                := v_src_pre_cas_temp(i).ICCID;
+        --v_tar_pre_data(v_idx).SIM_MODEL_CODE_SAP   := v_src_pre_cas_temp(i).sim_model_code_sap;
+        v_tar_pre_data(v_idx).USING_CUST_ID        := v_src_pre_cas_temp(i).USING_CUST_ID;
+        v_tar_pre_data(v_idx).ACTUAL_USER_FLAG     := v_src_pre_cas_temp(i).ACTUAL_USER_FLAG;
+        v_tar_pre_data(v_idx).using_id_type        := v_src_pre_cas_temp(i).using_id_type;
+        v_tar_pre_data(v_idx).using_id_no          := v_src_pre_cas_temp(i).using_id_no;
+        v_tar_pre_data(v_idx).using_first_name     := v_src_pre_cas_temp(i).using_first_name;
+        v_tar_pre_data(v_idx).using_middle_name    := v_src_pre_cas_temp(i).using_middle_name;
+        v_tar_pre_data(v_idx).using_last_name      := v_src_pre_cas_temp(i).using_last_name;
+        v_tar_pre_data(v_idx).using_second_last_name:= v_src_pre_cas_temp(i).using_second_last_name;
+        v_tar_pre_data(v_idx).ACCT_ID              := v_src_pre_cas_temp(i).ACCT_ID;
+        v_tar_pre_data(v_idx).ACCT_PAYMENT_TYPE    := v_src_pre_cas_temp(i).ACCT_PAYMENT_TYPE;
+        v_tar_pre_data(v_idx).bill_cycle_type_id   := v_src_pre_cas_temp(i).bill_cycle_type_id;
+        v_tar_pre_data(v_idx).ACCT_EFF_DATE        := v_src_pre_cas_temp(i).ACCT_EFF_DATE;
+        v_tar_pre_data(v_idx).ACCT_SN              := v_src_pre_cas_temp(i).ACCT_SN;
+        v_tar_pre_data(v_idx).ACCT_CNT             := v_src_pre_cas_temp(i).acct_cnt;
+        v_tar_pre_data(v_idx).CUST_ID              := v_src_pre_cas_temp(i).CUST_ID;
+        v_tar_pre_data(v_idx).CUST_ROLE            := v_src_pre_cas_temp(i).CUST_ROLE;
+        v_tar_pre_data(v_idx).CUST_STATUS          := v_src_pre_cas_temp(i).cust_status;
+        v_tar_pre_data(v_idx).CUST_EFF_DATE        := v_src_pre_cas_temp(i).CUST_EFF_DATE;
+        v_tar_pre_data(v_idx).ident_type_code      := v_src_pre_cas_temp(i).ident_type_code;
+        v_tar_pre_data(v_idx).ident_no             := v_src_pre_cas_temp(i).ident_no;
+        v_tar_pre_data(v_idx).MIGRATE_FLAG         := v_migrate_flag;
+        v_tar_pre_data(v_idx).REASON_REMARK        := v_reason_remark;
+        v_tar_pre_data(v_idx).subs_migrate_flag    := v_subs_migrate_flag;
+        v_tar_pre_data(v_idx).new_bill_cycle       := v_src_pre_cas_temp(i).new_bill_cycle;
+        v_tar_pre_data(v_idx).status_detail        := v_src_pre_cas_temp(i).status_detail;
+
+        ---------------------
+
+        v_idx          := v_idx + 1;
+
+        if v_subs_migrate_flag = 'N' then
+           v_tar_subs_acct(v_idx_1).acct_id := v_acct_id;
+           v_idx_1          := v_idx_1 + 1;
+        end if;
+
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT PRE_CAS_ALL_INFO_TMP---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.PRE_CAS_ALL_INFO_TMP values v_tar_pre_data(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'PRE_CAS_ALL_INFO_TMP';
+                  v_err.key_value := v_tar_pre_data(sql%bulk_exceptions(the_err).error_index).SUBS_ID ||','||v_tar_pre_data(sql%bulk_exceptions(the_err).error_index).acct_id ;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into PRE_CAS_ALL_INFO_TMP';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT PRE_CAS_ALL_INFO_TMP---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      if v_idx_1 > 0 then
+        ------------1 START INSERT SUBS_ACCT_ERR---------------------------
+        begin
+            forall i_idx in 1 .. v_idx_1-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.SUBS_ACCT_ERR values v_tar_subs_acct(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'SUBS_ACCT_ERR';
+                  v_err.key_value := v_tar_subs_acct(sql%bulk_exceptions(the_err).error_index).acct_id ;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into SUBS_ACCT_ERR';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT SUBS_ACCT_ERR---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_pre_cas_temp.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DATA_CLEASING;
+
+  procedure P_PRE_CAS_ALL_INFO(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select n.* from SRC_MED.PRE_CAS_ALL_INFO_TMP n;
+
+    type tab_src_pre_cas_temp is table of src_cur%rowtype index by binary_integer;
+    v_src_pre_cas_temp tab_src_pre_cas_temp;
+    --tariff table
+    --target table
+    type tab_tar_pre_data is table of SRC_MED.PRE_CAS_ALL_INFO%rowtype index by binary_integer;
+    v_tar_pre_data tab_tar_pre_data;
+
+    --<<BEGIN: Customize variable definition area>>
+    v_subs_acct_count  number(22);
+    v_migrate_flag     varchar2(2);
+    v_reason_remark    varchar2(64);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_PRE_CAS_ALL_INFO',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 'SRC_MED', 'PRE_CAS_ALL_INFO_TMP', i_index, v_partname);
+
+    v_src_sql := '
+    select n.* from SRC_MED.PRE_CAS_ALL_INFO_TMP partition('||v_partname||') n';
+
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_pre_cas_temp.delete;
+      v_tar_pre_data.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_pre_cas_temp limit v_batchnum;
+      exit when v_src_pre_cas_temp.count = 0;
+
+      v_idx := 1;
+      if v_src_pre_cas_temp.count > 0 then
+        for i in v_src_pre_cas_temp.first .. v_src_pre_cas_temp.last loop
+
+        v_migrate_flag  := v_src_pre_cas_temp(i).MIGRATE_FLAG;
+        v_reason_remark := v_src_pre_cas_temp(i).REASON_REMARK;
+
+        ----subs_acct_flag
+        select /*+ INDEX(i,I_SUBS_ACCT_ERR)*/ count(1) into v_subs_acct_count from src_med.SUBS_ACCT_ERR/*(select distinct acct_id from SRC_MED.PRE_CAS_ALL_INFO_TMP a where a.subs_migrate_flag='N')*/ t where t.acct_id = v_src_pre_cas_temp(i).ACCT_ID;
+        if v_subs_acct_count != 0 then
+           v_migrate_flag  := 'N';
+           v_reason_remark := v_reason_remark||', belong to acct';
+        end if;
+
+        ---------------------
+        v_tar_pre_data(v_idx).SERVICE_NUMBER       := v_src_pre_cas_temp(i).SERVICE_NUMBER;
+        v_tar_pre_data(v_idx).SUBS_ID              := v_src_pre_cas_temp(i).SUBS_ID;
+        v_tar_pre_data(v_idx).SUBS_PAYMENT_TYPE    := v_src_pre_cas_temp(i).SUBS_PAYMENT_TYPE;
+        v_tar_pre_data(v_idx).STATUS               := v_src_pre_cas_temp(i).STATUS;
+        v_tar_pre_data(v_idx).NETWORK_TYPE         := v_src_pre_cas_temp(i).network_type;
+        v_tar_pre_data(v_idx).STATUS_DATE          := v_src_pre_cas_temp(i).STATUS_DATE;
+        v_tar_pre_data(v_idx).SUBS_EFF_DATE        := v_src_pre_cas_temp(i).SUBS_EFF_DATE;
+        v_tar_pre_data(v_idx).PREACTIVATED_FLAG    := v_src_pre_cas_temp(i).PREACTIVATED_FLAG;
+        v_tar_pre_data(v_idx).IMSI                 := v_src_pre_cas_temp(i).IMSI;
+        v_tar_pre_data(v_idx).ICCID                := v_src_pre_cas_temp(i).ICCID;
+        v_tar_pre_data(v_idx).SIM_MODEL_CODE_SAP   := v_src_pre_cas_temp(i).sim_model_code_sap;
+        v_tar_pre_data(v_idx).USING_CUST_ID        := v_src_pre_cas_temp(i).USING_CUST_ID;
+        v_tar_pre_data(v_idx).ACTUAL_USER_FLAG     := v_src_pre_cas_temp(i).ACTUAL_USER_FLAG;
+        v_tar_pre_data(v_idx).using_id_type        := v_src_pre_cas_temp(i).using_id_type;
+        v_tar_pre_data(v_idx).using_id_no          := v_src_pre_cas_temp(i).using_id_no;
+        v_tar_pre_data(v_idx).using_first_name     := v_src_pre_cas_temp(i).using_first_name;
+        v_tar_pre_data(v_idx).using_middle_name    := v_src_pre_cas_temp(i).using_middle_name;
+        v_tar_pre_data(v_idx).using_last_name      := v_src_pre_cas_temp(i).using_last_name;
+        v_tar_pre_data(v_idx).using_second_last_name := v_src_pre_cas_temp(i).using_second_last_name;
+        v_tar_pre_data(v_idx).ACCT_ID              := v_src_pre_cas_temp(i).ACCT_ID;
+        v_tar_pre_data(v_idx).ACCT_PAYMENT_TYPE    := v_src_pre_cas_temp(i).ACCT_PAYMENT_TYPE;
+        v_tar_pre_data(v_idx).bill_cycle_type_id   := v_src_pre_cas_temp(i).bill_cycle_type_id;
+        v_tar_pre_data(v_idx).ACCT_EFF_DATE        := v_src_pre_cas_temp(i).ACCT_EFF_DATE;
+        v_tar_pre_data(v_idx).ACCT_SN              := v_src_pre_cas_temp(i).ACCT_SN;
+        v_tar_pre_data(v_idx).ACCT_CNT             := v_src_pre_cas_temp(i).acct_cnt;
+        v_tar_pre_data(v_idx).CUST_ID              := v_src_pre_cas_temp(i).CUST_ID;
+        v_tar_pre_data(v_idx).CUST_ROLE            := v_src_pre_cas_temp(i).CUST_ROLE;
+        v_tar_pre_data(v_idx).CUST_STATUS          := v_src_pre_cas_temp(i).cust_status;
+        v_tar_pre_data(v_idx).CUST_EFF_DATE        := v_src_pre_cas_temp(i).CUST_EFF_DATE;
+        v_tar_pre_data(v_idx).ident_type_code      := v_src_pre_cas_temp(i).ident_type_code;
+        v_tar_pre_data(v_idx).ident_no             := v_src_pre_cas_temp(i).ident_no;
+        v_tar_pre_data(v_idx).MIGRATE_FLAG         := v_migrate_flag;
+        v_tar_pre_data(v_idx).REASON_REMARK        := v_reason_remark;
+        v_tar_pre_data(v_idx).new_bill_cycle       := v_src_pre_cas_temp(i).new_bill_cycle;
+        v_tar_pre_data(v_idx).status_detail        := v_src_pre_cas_temp(i).status_detail;
+
+        ---------------------
+
+        v_idx          := v_idx + 1;
+
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT PRE_CAS_ALL_INFO---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.PRE_CAS_ALL_INFO values v_tar_pre_data(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'PRE_CAS_ALL_INFO';
+                  v_err.key_value := v_tar_pre_data(sql%bulk_exceptions(the_err).error_index).SUBS_ID ||','||v_tar_pre_data(sql%bulk_exceptions(the_err).error_index).acct_id ;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into PRE_CAS_ALL_INFO';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT PRE_CAS_ALL_INFO---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_pre_cas_temp.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_PRE_CAS_ALL_INFO;
+
+ procedure P_PRE_CAS(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    v_partname                      varchar2(32);
+    i_cur_piece                     number := 0;
+    --v_tab_exists                    number:=0;
+    --v_sql                           varchar2(5000);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    --v_EXTRACT_DATE                  DATE:=PKG_GRETA2_DFT.DEF_EXTRACT_DATE;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    cursor src_cur is
+    select a.*
+from SRC_MED.PRE_CAS_ALL_INFO a
+where a.MIGRATE_FLAG = 'Y';
+
+    --source table
+    type tab_src_pre_cas is table of src_cur%rowtype index by binary_integer;
+    v_src_pre_cas tab_src_pre_cas;
+    --tariff table
+    type tab_p_offering is table of SRC_MED.DM_P_OFFERING_MAP%rowtype index by varchar2(64);
+    v_tab_p_offering tab_p_offering;
+    --target table
+    type tab_tar_pre_cas is table of SRC_MED.PRE_CAS%rowtype index by binary_integer;
+    v_tar_pre_cas tab_tar_pre_cas;
+
+    --<<BEGIN: Customize variable definition area>>
+    v_s_p_offering_id  varchar2(20);
+    v_offer_uni_id     varchar2(20);
+    v_p_offering_id    number(20);
+    v_t_subs_id        number(20);
+    v_t_acct_id        number(20);
+    v_t_acct_code      varchar2(32);
+    v_t_cust_id        number(20);
+    v_t_party_id       number(20);
+    v_p_offer_inst_id  number(20);
+    v_p_prod_inst_id   number(20);
+    v_p_offering_code  varchar2(20);
+    v_p_prod_id        number(20);
+    v_p_prod_code      varchar2(20);
+    v_p_brand_id       varchar2(20);
+    v_p_brand_name     varchar2(20);
+    v_t_using_cust_id  varchar2(20);
+    v_status           varchar2(1);
+    v_flag_post_acct   varchar2(1);
+    v_addr_type        varchar2(1);
+    v_count_post_acct  number(10);
+    v_count_addr       number(10);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_PRE_CAS',i_region,i_index, v_batchnum);
+
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 'SRC_MED', 'PRE_CAS_ALL_INFO', i_index, v_partname);
+
+
+    v_src_sql := 'select a.*
+from SRC_MED.PRE_CAS_ALL_INFO partition('||v_partname||') a
+where a.MIGRATE_FLAG = ''Y''';
+
+    for v_p_offering in (select * from SRC_MED.DM_P_OFFERING_MAP)
+    loop
+    v_tab_p_offering(v_p_offering.src_offering_id):=v_p_offering;
+    end loop;
+
+    open cur_temp for v_src_sql;
+
+    loop
+      v_src_pre_cas.delete;
+      v_tar_pre_cas.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_pre_cas limit v_batchnum;
+      exit when v_src_pre_cas.count = 0;
+
+      v_idx := 1;
+      if v_src_pre_cas.count > 0 then
+        for i in v_src_pre_cas.first .. v_src_pre_cas.last loop
+
+        if v_src_pre_cas(i).migrate_flag = 'Y' then
+
+        ----flag_post_acct
+        select /*+ INDEX(i,I_MID_ACCT_C_P)*/ count(1) into v_count_post_acct from s3_data.mid_acct i where cust_id=v_src_pre_cas(i).cust_id and PAYMENT_TYPE='1' and rownum=1;
+        if v_count_post_acct = 1 then
+           v_flag_post_acct := 'Y';
+        else
+           v_flag_post_acct := 'N';
+        end if;
+
+        ----get the primary offering info
+        if v_src_pre_cas(i).service_number is not null then
+
+          ----actual user address check
+          select /*+ INDEX(h,I_ADDRESS_ENTITY_T_I_A)*/ count(1) into v_count_addr from s3_data.mid_address h where entity_type='S' and addr_type='2' and entity_id=v_src_pre_cas(i).subs_id;
+          if v_count_addr = 1 then
+             v_addr_type := 'S';---installation address
+          elsif v_count_addr = 0 then
+             v_addr_type := 'A';---billing address
+          end if;
+
+          if v_src_pre_cas(i).status in ('8','9') then
+             select /*+INDEX(d,I_OFFER_INST_P_S_O)*/ offering_id,offer_uni_id into v_s_p_offering_id,v_offer_uni_id from (select offering_id,offer_uni_id from s3_data.mid_offer_inst d where primary_flag='Y' and exp_date < extract_date and subs_id=v_src_pre_cas(i).subs_id order by exp_date desc) where rownum=1;
+          else
+             select /*+INDEX(d,I_OFFER_INST_P_S_O)*/ offering_id,offer_uni_id into v_s_p_offering_id,v_offer_uni_id from s3_data.mid_offer_inst d where primary_flag='Y' and eff_date <= extract_date and exp_date > extract_date and subs_id=v_src_pre_cas(i).subs_id;
+          end if;
+
+          v_status := v_src_pre_cas(i).status;
+
+          if v_tab_p_offering.exists(v_s_p_offering_id) then
+            v_p_offering_id     := v_tab_p_offering(v_s_p_offering_id).bes_offering_id;
+            v_p_offering_code   := v_tab_p_offering(v_s_p_offering_id).offer_code;
+            v_p_prod_id         := v_tab_p_offering(v_s_p_offering_id).prod_id;
+            v_p_prod_code       := v_tab_p_offering(v_s_p_offering_id).prod_code;
+            v_p_brand_id        := v_tab_p_offering(v_s_p_offering_id).brand_id;
+            v_p_brand_name      := v_tab_p_offering(v_s_p_offering_id).brand_name;
+
+          else
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'No primary offer mapping';
+              v_err.key_value := ''||v_src_pre_cas(i).subs_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'get primary offering mapping';
+              pkg_dtlog.p_exception(v_log, v_err);
+
+              continue;
+
+          end if;
+
+        else
+          v_p_offering_id     := NULL;
+          v_p_offering_code   := NULL;
+          v_p_prod_id         := NULL;
+          v_p_prod_code       := NULL;
+          v_p_brand_id        := NULL;
+          v_p_brand_name      := NULL;
+          v_status            := NULL;
+
+        end if;
+
+        -----start trans data
+
+        v_t_subs_id        := PKG_GRETA2_PUB.f_get_subsid(v_src_pre_cas(i).subs_id);
+        v_t_cust_id        := PKG_GRETA2_PUB.f_get_custid('REG',v_src_pre_cas(i).cust_status,v_src_pre_cas(i).cust_id);
+        v_t_using_cust_id  := PKG_GRETA2_PUB.f_get_custid('USE',v_src_pre_cas(i).cust_status,v_src_pre_cas(i).subs_id);
+        if v_src_pre_cas(i).subs_payment_type = '0' and v_src_pre_cas(i).acct_payment_type = '0' then
+           v_t_acct_id        := PKG_GRETA2_PUB.f_get_pre_acctid(v_src_pre_cas(i).acct_SN,v_src_pre_cas(i).acct_id);
+
+           if v_src_pre_cas(i).preactivated_flag = 'N' and v_src_pre_cas(i).status = '2' then
+              v_t_cust_id        := PKG_GRETA2_PUB.f_get_custid('REG',v_src_pre_cas(i).cust_status,v_src_pre_cas(i).cust_id) + v_src_pre_cas(i).acct_SN;
+              v_t_using_cust_id  := NULL;
+              v_status := '1';
+           end if;
+
+        else
+           v_t_acct_id        := PKG_GRETA2_PUB.f_get_sme_acctid(v_src_pre_cas(i).acct_id);
+        end if;
+
+        if v_src_pre_cas(i).subs_payment_type = '0' and v_src_pre_cas(i).acct_payment_type = '0' then
+           v_t_acct_code        := '3'||v_src_pre_cas(i).service_number;--PKG_GRETA2_PUB.f_get_acctcode(v_src_pre_cas(i).acct_SN,v_src_pre_cas(i).acct_id);
+
+        else
+           v_t_acct_code        := 2000000000+v_src_pre_cas(i).acct_id;
+        end if;
+
+
+        v_t_party_id       := v_t_cust_id;
+        v_p_offer_inst_id  := Seq_Offering_Inst_Offer.Nextval;
+        v_p_prod_inst_id   := seq_prod_inst_offer.nextval;
+
+        begin
+            v_tar_pre_cas(v_idx).msisdn              := v_src_pre_cas(i).service_number;
+            v_tar_pre_cas(v_idx).s_subs_id           := v_src_pre_cas(i).subs_id;
+            v_tar_pre_cas(v_idx).t_subs_id           := v_t_subs_id;
+            v_tar_pre_cas(v_idx).s_acct_id           := v_src_pre_cas(i).acct_id;
+            v_tar_pre_cas(v_idx).t_acct_id           := v_t_acct_id;
+            v_tar_pre_cas(v_idx).t_acct_code         := v_t_acct_code;--1000000000+v_src_pre_cas(i).acct_id;--v_t_acct_id;
+            v_tar_pre_cas(v_idx).subs_name           := v_src_pre_cas(i).USING_FIRST_NAME||' '||v_src_pre_cas(i).USING_MIDDLE_NAME||' '||v_src_pre_cas(i).USING_LAST_NAME||' '||v_src_pre_cas(i).USING_SECOND_LAST_NAME;
+            v_tar_pre_cas(v_idx).subs_payment_type   := PKG_GRETA2_PUB.f_get_newdict('MID_SUBS.PAYMENT_TYPE',v_src_pre_cas(i).subs_payment_type,'1');
+            v_tar_pre_cas(v_idx).network_type        := v_src_pre_cas(i).network_type;
+            v_tar_pre_cas(v_idx).subs_eff_date       := v_src_pre_cas(i).subs_eff_date;
+            v_tar_pre_cas(v_idx).SIM_MODEL_CODE_SAP  := v_src_pre_cas(i).SIM_MODEL_CODE_SAP;
+            v_tar_pre_cas(v_idx).acct_payment_type   := v_src_pre_cas(i).acct_payment_type;
+            v_tar_pre_cas(v_idx).bill_cycle_type_id  := v_src_pre_cas(i).bill_cycle_type_id;
+            v_tar_pre_cas(v_idx).acct_eff_date       := v_src_pre_cas(i).acct_eff_date;
+            v_tar_pre_cas(v_idx).status              := v_status;--v_src_pre_cas(i).bes_sub_status;
+            v_tar_pre_cas(v_idx).FLAG_POST_ACCT      := v_flag_post_acct;
+            v_tar_pre_cas(v_idx).s_cust_id           := v_src_pre_cas(i).cust_id;
+            v_tar_pre_cas(v_idx).t_cust_id           := v_t_cust_id;
+            v_tar_pre_cas(v_idx).t_cust_code         := NULL;
+            v_tar_pre_cas(v_idx).cust_eff_date       := v_src_pre_cas(i).cust_eff_date;
+            v_tar_pre_cas(v_idx).ident_type_code     := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.IDENT_TYPE',v_src_pre_cas(i).ident_type_code,'1');
+            v_tar_pre_cas(v_idx).ident_no            := v_src_pre_cas(i).ident_no;
+            v_tar_pre_cas(v_idx).s_using_cust_id     := v_src_pre_cas(i).using_cust_id;
+            v_tar_pre_cas(v_idx).t_using_cust_id     := v_t_using_cust_id;
+            v_tar_pre_cas(v_idx).using_id_type       := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.IDENT_TYPE',v_src_pre_cas(i).using_id_type,'1');
+            v_tar_pre_cas(v_idx).using_id_no         := v_src_pre_cas(i).using_id_no;
+            v_tar_pre_cas(v_idx).addr_entity_type    := v_addr_type;
+            v_tar_pre_cas(v_idx).t_party_id          := v_t_party_id;
+            v_tar_pre_cas(v_idx).preactivated_flag   := v_src_pre_cas(i).preactivated_flag;
+            v_tar_pre_cas(v_idx).split_flag          := NULL;
+            v_tar_pre_cas(v_idx).imsi                := v_src_pre_cas(i).imsi;
+            v_tar_pre_cas(v_idx).iccid               := v_src_pre_cas(i).iccid;
+            v_tar_pre_cas(v_idx).p_offer_inst_id     := v_p_offer_inst_id;
+            v_tar_pre_cas(v_idx).p_offer_id          := v_p_offering_id;
+            v_tar_pre_cas(v_idx).OFFER_UNI_ID        := v_offer_uni_id;
+            v_tar_pre_cas(v_idx).p_prod_inst_id      := v_p_prod_inst_id;
+            v_tar_pre_cas(v_idx).p_prod_id           := v_p_prod_id;
+            v_tar_pre_cas(v_idx).p_offer_code        := v_p_offering_code;
+            v_tar_pre_cas(v_idx).p_prod_code         := v_p_prod_code;
+            v_tar_pre_cas(v_idx).brand_id            := v_p_brand_id;
+            v_tar_pre_cas(v_idx).brand_name          := v_p_brand_name;
+            --v_tar_pre_cas(v_idx).src_status          := v_src_pre_cas(i).src_status;
+            --v_tar_pre_cas(v_idx).src_status_detail   := v_src_pre_cas(i).src_status_detail;
+            v_tar_pre_cas(v_idx).fs_status_detail_type  := NULL;--v_src_pre_cas(i).fs_status_detail_type;
+            v_tar_pre_cas(v_idx).bes_sub_status_detail  := case when v_src_pre_cas(i).status in('2','8') then
+                                                                     '00000000'
+                                                                else
+                                                                     v_src_pre_cas(i).status_detail
+                                                           end;--v_src_pre_cas(i).bes_sub_status_detail;
+            v_tar_pre_cas(v_idx).is_sme                 := '0';
+            v_tar_pre_cas(v_idx).new_bill_cycle         := v_src_pre_cas(i).new_bill_cycle;
+            v_tar_pre_cas(v_idx).PREDEACTIVE_REASON     := case when v_src_pre_cas(i).status = '8' then
+                                                                     v_src_pre_cas(i).status_detail
+                                                                else
+                                                                     NULL
+                                                           end;
+
+         exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT PRE_CAS ARRAY wrong';
+              v_err.key_value := v_src_pre_cas(i).subs_id||','||v_src_pre_cas(i).cust_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT PRE_CAS ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+        -----------------END INIT PRE_CAS ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end if;
+        end loop;
+      end if;
+
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT PRE_CAS---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+             insert /* +append nologging */ into SRC_MED.PRE_CAS values v_tar_pre_cas(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'PRE_CAS';
+                  v_err.key_value := v_tar_pre_cas(sql%bulk_exceptions(the_err).error_index).s_subs_id||','||v_tar_pre_cas(sql%bulk_exceptions(the_err).error_index).s_acct_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into PRE_CAS';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT PRE_CAS---------------------------
+          pkg_dtlog.p_commit(v_log);
+        end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_pre_cas.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+
+    end loop;
+      --finish process
+    pkg_dtlog.p_complete(v_log);
+  exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+  end P_PRE_CAS;
+
+ end PKG_GRETA21_PRE_CAS;
