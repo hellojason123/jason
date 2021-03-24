@@ -1,0 +1,57 @@
+plan 
+
+Batch	steam	start date	end date	PIC
+				
+phase1.1	DMT 2	2017/6/6	2017/6/18	Test Team
+	CV4 UPGRADE	2017/6/19	2017/6/20	infra team
+	Funcation TEST	2017/6/21	2017/6/22	Test Team
+	DM tools upgrade for cv4	2017/6/14	2017/6/21	DM on-sit
+	DMT 2s	2017/6/23	2017/6/28	Test Team
+	Inner DMT4	2017/6/23	2017/6/28	DM offshore
+	DMT 3 with cust	2017/6/29	2017/7/13	Test Team
+	DMT 4 with cust	2017/7/14	2017/7/26	Test Team
+	CUI test 1 with cust	2017/6/1	2017/6/15	DM on-sit
+	CUI test 2 with cust	2017/6/30	2017/7/10	DM on-sit
+	CUI test 3 with cust	2017/7/21	2017/7/25	DM on-sit
+	dry run 1	2017/7/26	2017/8/14	ALL
+	dry run 2	2017/8/16	2017/8/24	ALL
+	dry run 3	2017/8/26	2017/9/2	ALL
+	dry run 4	2017/9/4	2017/9/10	ALL
+	data loading	NA	NA	DM on-sit
+	data provided	NA	NA	TLF
+	data cleansing	NA	NA	TLF
+phase1.2	investigation closer	2017/6/14	2017/6/30	DM offshore
+	analyze&mapping	2017/7/1	2017/9/1	DM offshore
+	develop DM tools	2017/9/2	2017/11/30	DM offshore
+	internal test	2017/12/1	2017/12/31	DM offshore
+	DMT	2018/1/1	2018/4/30	Test Team
+	rehearsal	2018/5/1	2018/7/31	DM on-sit
+	Pilot	2018/8/1	2018/8/31	DM on-sit
+	cutover	2018/9/1	2018/9/30	DM on-sit
+cut-over	milestone	NA	NA	cut over
+	workshop plan	NA	NA	cut over
+
+Work Progress of This Week
+	
+No	Test Activity	Test Version	Location	Start Time	End Time	STATES
+1	internal DMT 1	CV2	Offshore	2017/2/28	2017/3/31	CANCELED
+2	internal DMT 2	CV2	Offshore	2017/2/28	2017/4/20	CLOSED
+3	internal DMT 3	CV3	Offshore	2017/4/30	2017/5/5	CLOSED
+4	DMT 1st round	CV3	"Offshore
+onsite"	2017/4/30	2017/5/17	CLOSED
+5	DMT 2nd round	CV3	"Offshore
+onsite"	2017/4/30	2017/6/6	CLOSED
+6	CV4 UPGRADE	CV4	onsite	2017/6/19	2017/6/20	CLOSED
+7	Funcation TEST	CV4	Offshore	2017/6/21	2017/6/22	CLOSED
+8	DM tools upgrade for cv4	CV4	onsite	2017/6/14	2017/6/21	CLOSED
+9	DMT 2s	CV4	Offshore	2017/6/23	2017/6/28	CLOSED
+10	Inner DMT4	CV4	Offshore	2017/6/23	2017/6/28	CLOSED
+11	DMT 3 with cust	CV4	onsite	2017/6/29	2017/7/13	CLOSED
+12	DMT 4 with cust	CV4	onsite	2017/7/24	2017/8/5	PLAN
+13	CUI test 1	CV4	onsite	2017/6/1	2017/6/15	CLOSED
+14	CUI test 2 	CV4	onsite	2017/6/30	2017/7/10	CLOSED
+15	CUI test 3 	CV4	onsite	2017/7/24	2017/7/28	PLAN
+16	dry run 1	CV4	onsite	2017/7/26	2017/8/14	PLAN
+17	dry run 2	CV4	onsite	2017/8/16	2017/8/24	PLAN
+18	dry run 3	CV4	onsite	2017/8/26	2017/9/2	PLAN
+19	dry run 4	CV4	onsite	2017/9/4	2017/9/10	PLAN
