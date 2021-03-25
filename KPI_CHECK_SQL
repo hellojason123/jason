@@ -1,0 +1,818 @@
+create or replace package body PKG_GRETA21_KPI is
+
+  procedure P_KPI_TOOL is
+    v_sql   varchar2(2048);
+    v_cnt   number(20);
+  begin
+    v_sql := 'truncate table exe_fixed.kpi_check_result';
+    execute immediate v_sql;
+    
+    for kpi_check in (select * from exe_fixed.kpi_check_sql t where t.chk_flag = 'Y') loop
+      v_sql := kpi_check.kpi_sql;
+      begin
+      execute immediate v_sql into v_cnt;
+      exception
+        when others then
+          NULL;
+      end;
+      
+     
+      
+
+      insert into exe_fixed.kpi_check_result values
+      (kpi_check.kpi_id,
+       kpi_check.group_id,
+       kpi_check.kpi_type,
+       kpi_check.kpi_desc,
+       v_cnt,
+       sysdate);
+       commit;
+     
+
+    end loop;
+  end P_KPI_TOOL;
+
+end PKG_GRETA21_KPI;
+
+
+create table KPI_CHECK_SQL
+(
+  kpi_id   VARCHAR2(32) not null,
+  group_id NUMBER(1),
+  kpi_type VARCHAR2(32),
+  kpi_desc VARCHAR2(64),
+  chk_flag VARCHAR2(1) not null,
+  kpi_sql  VARCHAR2(2048) not null
+)
+tablespace EXE_FIXED_DAT
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+  
+create table KPI_CHECK_RESULT
+(
+  kpi_id    VARCHAR2(32),
+  group_id  NUMBER(1),
+  kpi_type  VARCHAR2(32),
+  kpi_desc  VARCHAR2(64),
+  amt_count NUMBER(20),
+  chk_date  DATE
+)
+tablespace EXE_FIXED_DAT
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+  
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_003_2', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM INV_USER.IM_ENTI_TELNUM T WHERE T.INV_STATUS = ''OutOfPrint''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_004_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''Locked''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_004_2', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM INV_USER.IM_ENTI_TELNUM T WHERE T.INV_STATUS = ''Locked''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_005_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''DEACTIVATED''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_005_2', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM INV_USER.IM_ENTI_TELNUM T WHERE T.INV_STATUS = ''DEREGISTRATED''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS008_2', '', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.EX_FIELD17 = ''Y''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS008_1', '', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_IMEI T WHERE T.EXTERNAL_FLAG = ''E''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS007_2', '', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.EX_FIELD17 = ''N''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS007_1', '', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_IMEI T WHERE T.EXTERNAL_FLAG = ''I''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_017_2', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM CUST_USER.INF_CUSTOMER T WHERE T.CUST_ROLE_ID = ''31416''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_017_1', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_CUST T WHERE T.CUST_ROLE = ''31416''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_016_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM CUST_USER.INF_CUSTOMER T WHERE T.CUST_ROLE_ID = ''31415''
+AND SUBSTR(T.CUST_ID,1,2) = ''31''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_016_1', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_CUST T WHERE T.CUST_ROLE = ''31415''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_021', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM(
+  SELECT * FROM (SELECT T.T_ACCT_ID,T.S_ACCT_ID,ROW_NUMBER()OVER(PARTITION BY T.S_ACCT_ID ORDER BY NULL) RN 
+  FROM SRC_MED.PRE_CAS T WHERE T.SUBS_PAYMENT_TYPE = ''0'' AND T.ACCT_PAYMENT_TYPE = ''0'') WHERE RN > 1
+  UNION ALL
+  SELECT * FROM (SELECT T.T_ACCT_ID,T.S_ACCT_ID,ROW_NUMBER()OVER(PARTITION BY T.S_ACCT_ID ORDER BY NULL) RN 
+  FROM SRC_MED.PRE_CAS_SME T WHERE T.SUBS_PAYMENT_TYPE = ''0'' AND T.ACCT_PAYMENT_TYPE = ''0'') WHERE RN > 1)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('IDEN_001_1', '2', 'MSISDN_HIS', '', 'Y', 'SELECT COUNT(*) FROM SRC_MED.DM_PROD_INST_IDEN T WHERE T.ITEM_FLAG=''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_009_3', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_PAY_CHANNEL T WHERE UPPER(T.PAYMENT_METHOD) = ''CASH''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_010_3', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_BLACKLIST A
+WHERE NOT EXISTS(SELECT 1 FROM S3_DATA.MID_CUST B WHERE A.ID_TYPE = B.IDENT_TYPE_CODE AND A.ID_NUMBER = B.IDENT_NO)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_025_3', '2', 'Data_Load_Stage', '', 'Y', 'SELECT COUNT(1) FROM PARTY_USER.INF_CONTACTS T WHERE LENGTH(T.CONTACT_PERSON_ID) = ''10'' AND T.CONTACT_PERSON_ID LIKE ''1%''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_037_3', '2', 'Data_Load_Stage', '', 'Y', 'SELECT COUNT(1) FROM SRC_MED.DM_PAY_RELATION T WHERE T.STATUS = ''1''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_009_3', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_CUST T WHERE T.CUST_ROLE = ''31416''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_036_3', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''SAA''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_036_4', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''BAA''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_018_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(16)*/COUNT(1) 
+FROM S3_DATA.MID_SUBS A
+JOIN S3_DATA.MID_ACTUAL_USER B
+ON A.SUBS_ID = B.SUBS_ID
+JOIN S3_DATA.MID_CUST C
+ON B.IDENT_TYPE_CODE = C.IDENT_TYPE_CODE
+AND B.IDENT_NO = C.IDENT_NO
+AND C.CUST_ROLE = ''ACTUAL USE CUSTOMER''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_003_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.SUBS_ID LIKE ''5%''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_001_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM CUST_USER.INF_CUSTOMER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_001_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_CUST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_003_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_SUBS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_002_2', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM  PARTY_USER.INF_ACCOUNT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_002_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_ACCT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_015_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T WHERE T.ADDR_REF_PURPOSE_ID = ''60105100001''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_014_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T WHERE T.ADDR_REF_PURPOSE_ID IN(''6010506002'',''6010506003'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_014_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ADDRESS T WHERE T.ENTITY_TYPE = ''C''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_013_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T
+WHERE T.ADDR_REF_ENTITY_ID NOT LIKE ''32%'' and
+t.addr_ref_entity_id not in(select a.prod_inst_id from src_med.dm_group a)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_013_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_ADDRESS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_007_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1)  FROM SRC_MED.PRE_CAS_ALL_INFO T 
+  JOIN SRC_MED.PRE_CAS_SUBS_ID A
+  ON T.SUBS_ID = A.S_SUBS_ID
+  WHERE T.ACTUAL_USER_FLAG = ''Y''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_007_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_ACTUAL_USER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_015_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ADDRESS T WHERE T.ENTITY_TYPE = ''A''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_006_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.SUBS_ID LIKE ''5%'' AND T.STATUS = ''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_006_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_SUBS T WHERE T.STATUS = ''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_005_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.SUBS_ID LIKE ''5%'' AND T.STATUS = ''3''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_005_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_SUBS T WHERE T.STATUS = ''3''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_004_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.SUBS_ID LIKE ''5%'' AND T.STATUS = ''2''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_004_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_SUBS T WHERE T.STATUS = ''2''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_001_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCOUNT_BALANCE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_002_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_004_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''2''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_003_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT_ADDR_REL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_004_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT_BM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_005_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACTUAL_USER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_006_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ADDRESS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_007_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_BILL_BALANCE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_008_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_BLACKLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_009_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_CUST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_010_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_CUST_ORG');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_011_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_DC_HOLD');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_012_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_DC_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_013_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_DND_SERVICE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_014_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_FN');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_015_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_FN_OFFER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_016_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_HANDSET_ORDER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_017_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_018_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_DIS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_019_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_020_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INV_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_021_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INV_HISTORY');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_022_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_FSISDN');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_023_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_OCC_CDR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_024_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_OFFER_INST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_025_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ORG_CONTACT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_026_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ORG_CONTRACT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_027_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ORG_MANAGER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_028_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PACKAGE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_029_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PAY_CHANNEL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_030_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_REDLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_031_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_RENTCHARGE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_032_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_RENT_CDR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_033_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_REPORT_LOST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_034_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SIM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_035_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_036_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_037_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_DFT_ACCT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_038_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_IMEI');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_039_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_FSISDN_HIS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_040_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_STATE_CHG');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_041_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_TAX_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_042_1', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_TRANS_ALL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_001_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCOUNT_BALANCE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_002_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_003_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT_ADDR_REL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_004_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT_BM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_005_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACTUAL_USER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_006_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ADDRESS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_007_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_BILL_BALANCE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_008_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_BLACKLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_009_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_CUST T WHERE T.CUST_ROLE = ''31415''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_010_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_CUST_ORG');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_011_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_DC_HOLD');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_012_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_DC_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_013_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_DND_SERVICE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_014_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_FN');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_015_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_FN_OFFER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_016_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_HANDSET_ORDER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_017_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_INSTALLMENT_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_018_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_DIS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_019_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_INSTALLMENT_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_020_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INV_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_021_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_INV_HISTORY');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_022_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_FSISDN');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_023_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_OCC_CDR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_024_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_OFFER_INST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_025_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_ORG_CONTACT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_026_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_ORG_CONTRACT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_027_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_ORG_MANAGER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_028_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PACKAGE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_029_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PAY_CHANNEL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_030_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_REDLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_031_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_RENTCHARGE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_032_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_RENT_CDR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_033_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_REPORT_LOST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_034_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_SIM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_035_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SR');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_036_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''AAA''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_037_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_SUBS_DFT_ACCT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_038_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS_IMEI');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_039_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_SUBS_FSISDN_HIS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_040_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM S3_DATA.MID_SUBS_STATE_CHG');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_041_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_TAX_DETAIL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_S_042_2', '2', 'Data_Load_Stage', '', 'Y', 'SELECT /*+PARALLEL(16)*/ COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_TRANS_ALL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_019', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(8)*/COUNT(1) FROM( 
+ SELECT 1 FROM SRC_MED.PRE_CAS_USING_CUST_ID B
+  WHERE NOT EXISTS(SELECT 1  FROM SRC_MED.PRE_CAS_ALL_INFO T 
+  JOIN SRC_MED.PRE_CAS_SUBS_ID A
+  ON T.SUBS_ID = A.S_SUBS_ID
+  WHERE T.ACTUAL_USER_FLAG = ''Y'' AND B.S_SUBS_ID = T.SUBS_ID)
+UNION ALL
+  SELECT 1 FROM SRC_MED.PRE_CAS_SME B
+  WHERE NOT EXISTS(SELECT 1  FROM SRC_MED.PRE_CAS_ALL_INFO_SME T 
+  JOIN SRC_MED.PRE_CAS_SME A
+  ON T.SUBS_ID = A.S_SUBS_ID
+  AND A.S_SUBS_ID IS NOT NULL
+  WHERE T.ACTUAL_USER_FLAG = ''Y'' AND B.S_SUBS_ID = T.SUBS_ID)
+  AND B.S_USING_CUST_ID IS NOT NULL)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_018_1', '1', 'CAS_Check', '', 'Y', 'Select /*+ parallel(4)*/Count(1)
+  From s3_data.mid_subs a
+  join s3_data.mid_actual_user d
+    on a.cust_id = d.subs_id
+  join s3_data.mid_cust e
+    on e.ident_type_code = d.ident_type_code
+   and e.ident_no = d.ident_no
+   and e.cust_role = ''31416''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_018_2', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM(  
+SELECT 1  FROM SRC_MED.PRE_CAS_ALL_INFO T 
+  JOIN SRC_MED.PRE_CAS_SUBS_ID A
+  ON T.SUBS_ID = A.S_SUBS_ID
+  WHERE T.ACTUAL_USER_FLAG = ''Y''
+UNION ALL
+SELECT 1  FROM SRC_MED.PRE_CAS_ALL_INFO_SME T 
+  JOIN SRC_MED.PRE_CAS_SME A
+  ON T.SUBS_ID = A.S_SUBS_ID
+  AND A.S_SUBS_ID IS NOT NULL
+  WHERE T.ACTUAL_USER_FLAG = ''Y'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_022', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ADDR_REF T WHERE T.ADDR_REF_PURPOSE_ID = ''6010506003'' AND T.ADDR_REF_ENTITY_ID LIKE ''32%''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_003_1', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_ACCT_ADDR_REL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_003_2', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_ACCT_ADDR_REL A
+ WHERE EXISTS(SELECT * FROM SRC_MED.PRE_CAS_SME B WHERE A.ACCT_ID = B.S_ACCT_ID)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_027', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM CUST_USER.INF_CUST_SRV_CHANNEL_CZ');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_026', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM CUST_USER.INF_CUST_CONTRACT_CZ');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_025', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ USE_HASH(A,B)*/COUNT(1)
+  FROM TEST_TLF_FIXED_DATA.MID_ORG_CONTACT A
+  JOIN TEST_TLF_FIXED_DATA.MID_CUST B
+    ON A.IDENT_TYPE = B.IDENT_TYPE_NAME
+   AND A.IDENT_NO = B.IDENT_NO
+  JOIN (SELECT DISTINCT S_CUST_ID, T_CUST_ID, FLAG_POST_ACCT
+          FROM SRC_MED.PRE_CAS_SME) C
+    ON A.CUST_ID = C.S_CUST_ID');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_010', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM CUST_USER.INF_CUSTOMER T WHERE T.CUST_ROLE_ID = ''31415''
+AND SUBSTR(T.CUST_ID,1,2) = ''33''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_040', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM SUBS_USER.INF_ENTITY_STATE_CHG_EX t where t.entity_type = ''S''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('DL_CHK_033', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM ORDER_USER.OM_REPORT_LOST_INFO_CZ');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_010_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''Frost''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_010_2', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM INV_USER.IM_ENTI_TELNUM T WHERE T.INV_STATUS = ''Frost''
+');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_011_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM  PARTY_USER.INF_REDLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_011_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_REDLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_010_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_BLACKLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_010_1', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM S3_DATA.MID_BLACKLIST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_009_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_PAYMENT_CHANNEL');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_009_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_PAY_CHANNEL WHERE UPPER(PAYMENT_METHOD) != ''CASH''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_008_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.SUBS_ID LIKE ''5%'' AND T.STATUS = ''8''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_008_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_SUBS T WHERE T.STATUS = ''8''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_012_2', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM PARTY_USER.INF_BILL_MEDIUM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_012_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM S3_DATA.MID_ACCT_BM');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_002_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/
+ COUNT(1)
+  FROM CUST_USER.INF_CUSTOMER A
+ WHERE EXISTS (SELECT 1 FROM PARTY_USER.INF_ADDR_REFERENCE B WHERE A.CUST_ID = B.ADDR_REF_ENTITY_ID AND B.ADDR_REF_PURPOSE_ID
+ = ''6010506003'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_002_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/
+ COUNT(1)
+  FROM SRC_MED.DM_CUST_IND A
+ WHERE EXISTS (SELECT 1 FROM SRC_MED.DM_ADDR_REF B WHERE A.CUST_ID = B.ADDR_REF_ENTITY_ID AND B.ADDR_REF_PURPOSE_ID
+ = ''6010506003'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_003_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/
+ COUNT(1)
+  FROM CUST_USER.INF_CUSTOMER A
+ WHERE EXISTS (SELECT 1 FROM PARTY_USER.INF_ADDR_REFERENCE B WHERE A.CUST_ID = B.ADDR_REF_ENTITY_ID AND B.ADDR_REF_PURPOSE_ID
+ = ''6010506002'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_003_1', '1', 'CAS', '', 'Y', 'SELECT 
+ COUNT(1)
+  FROM SRC_MED.DM_CUST_IND A
+ WHERE EXISTS (SELECT 1 FROM SRC_MED.DM_ADDR_REF B WHERE A.CUST_ID = B.ADDR_REF_ENTITY_ID AND B.ADDR_REF_PURPOSE_ID
+ = ''6010506002'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_001_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM CUST_USER.INF_CUSTOMER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_001_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_CUST_IND');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_007_2', '1', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM PARTY_USER.INF_ACCOUNT A
+WHERE NOT EXISTS(SELECT 1 FROM SUBS_USER.INF_SUBSCRIBER B WHERE A.ACCT_ID = B.ACCT_ID)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_007_1', '1', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM SRC_MED.DM_ACCT_INFO A
+WHERE NOT EXISTS(SELECT 1 FROM SRC_MED.DM_SUBS_IND B WHERE A.ACCT_ID = B.ACCT_ID)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_005_2', '1', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM(SELECT T.ACCT_ID,COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T GROUP BY T.ACCT_ID HAVING COUNT(1) > 1)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_005_1', '1', 'CAS', '', 'Y', 'SELECT COUNT(1)
+  FROM (SELECT A.ACCT_ID, COUNT(1)
+          FROM SRC_MED.DM_SUBS_IND A
+         GROUP BY A.ACCT_ID HAVING COUNT(1) > 1)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_006_2', '1', 'CAS', '', 'Y', 'SELECT COUNT(1) FROM(SELECT T.ACCT_ID,COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T GROUP BY T.ACCT_ID HAVING COUNT(1) = 1)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_006_1', '1', 'CAS', '', 'Y', 'SELECT COUNT(1)
+  FROM (SELECT A.ACCT_ID, COUNT(1)
+          FROM SRC_MED.DM_SUBS_IND A
+         GROUP BY A.ACCT_ID
+        HAVING COUNT(1) = 1)');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_004_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ACCOUNT');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_004_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ACCT_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_011_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.STATUS = ''8''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_011_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_SUBS_IND T WHERE T.STATUS = ''8''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_010_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.STATUS = ''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_010_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_SUBS_IND T WHERE T.STATUS = ''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_009_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER T WHERE T.STATUS = ''2''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_009_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_SUBS_IND T WHERE T.STATUS = ''2''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_008_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_008_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_SUBS_IND');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_015_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T WHERE T.ADDR_REF_PURPOSE_ID = ''10001100111''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_015_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ADDR_REF T WHERE T.ADDR_REF_PURPOSE_ID = ''10001100111''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_014_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T WHERE T.ADDR_REF_PURPOSE_ID = ''6010506002''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_014_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ADDR_REF T WHERE T.ADDR_REF_PURPOSE_ID = ''6010506002''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_013_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDR_REFERENCE T WHERE T.ADDR_REF_PURPOSE_ID = ''6010506003''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_013_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ADDR_REF T WHERE T.ADDR_REF_PURPOSE_ID = ''6010506003''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_012_2', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM PARTY_USER.INF_ADDRESS');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_012_1', '1', 'CAS', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM SRC_MED.DM_ADDR_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('OFF_000_1', '2', 'Offering', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_OFFER_INST');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('OFF_000_2', '2', 'Offering', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_OFFER_INST A JOIN SRC_MED.PRE_CAS_ALL B ON A.SUBS_ID = B.S_SUBS_ID');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_001_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_HANDSET_ORDER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_001_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_HANDSET_ORDER A JOIN SRC_MED.PRE_CAS_ALL B ON A.SUBS_ID = B.S_SUBS_ID');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_002_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_HANDSET_ORDER A JOIN SRC_MED.PRE_CAS_ALL B ON A.SUBS_ID = B.S_SUBS_ID');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_002_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(1) FROM SUBS_USER.INF_PROD_INST_GOODS_EX');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_003_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FN');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_003_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FN A JOIN SRC_MED.PRE_CAS_ALL B ON A.SUBS_ID = B.S_SUBS_ID');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_014_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_DND_SERVICE');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_014_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(1) FROM SUBS_USER.INF_SUBSCRIBER_DND_CTZ');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_015_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_INFO');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_015_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ COUNT(*) FROM subs_user.inf_offer_installment_inst');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_016_1', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ SUM(T.TOTAL_AMOUNT) FROM TEST_TLF_FIXED_DATA.MID_INSTALLMENT_INFO T');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('SF_016_2', '2', 'Special_Function', '', 'Y', 'SELECT /*+PARALLEL(4)*/ SUM(T.TOTAL_AMOUNT) FROM SUBS_USER.inf_offer_installment_inst T');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_001_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''Available''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_001_2', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM INV_USER.IM_ENTI_TELNUM T WHERE T.INV_STATUS = ''Available''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_003_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''OutOfPrint''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_005_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''3''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_006_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''4''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_008_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_SUBS T WHERE T.STATUS = ''8''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_009_5', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PAY_CHANNEL T WHERE UPPER(T.PAYMENT_METHOD) = ''CASH''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('CAS_CHK_009_4', '1', 'CAS_Check', '', 'Y', 'SELECT COUNT(1) FROM TEST_TLF_FIXED_DATA.MID_PAY_CHANNEL T WHERE UPPER(T.PAYMENT_METHOD) != ''CASH''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_001_1', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(16)*/
+ COUNT(1)
+  FROM (SELECT DISTINCT T.ACCT_ID,t.fmc_offer_id
+          FROM test_tlf_fixed_data.MID_OFFER_INST T
+         WHERE T.FMC_OFFER_ID IS NOT NULL and t.primary_flag = ''Y'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_001_2', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(16)*/
+ COUNT(1)
+  FROM (SELECT DISTINCT T.ACCT_ID,t.fmc_offer_id
+          FROM S3_DATA.MID_OFFER_INST T
+         WHERE T.FMC_OFFER_ID IS NOT NULL and t.primary_flag = ''Y'')');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_001_3', '1', 'CAS_Check', '', 'Y', 'SELECT /*+ PARALLEL(4)*/COUNT(1) FROM  SUBS_USER.INF_GROUP');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_002_2', '1', 'CAS_Check', '', 'Y', 'SELECT
+/*+ PARALLEL(4)*/
+ COUNT(1)
+  FROM S3_DATA.MID_OFFER_INST A
+ WHERE A.FMC_OFFER_ID IS NOT NULL
+   and a.primary_flag = ''Y''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_002_1', '1', 'CAS_Check', '', 'Y', 'SELECT
+/*+ PARALLEL(4)*/
+ COUNT(1)
+  FROM test_tlf_fixed_data.MID_OFFER_INST A
+ WHERE A.FMC_OFFER_ID IS NOT NULL
+   and a.primary_flag = ''Y''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('FMC_CHK_002_3', '1', 'CAS_Check', '', 'Y', ' SELECT /*+ PARALLEL(4)*/
+  COUNT(1)
+   FROM SUBS_USER.INF_GROUP_MEMBER');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_002_2', '2', 'Inventory', '', 'Y', 'Select Count(1) From INV_USER.IM_ENTI_TELNUM T where T.inv_status=''Booked''');
+
+insert into exe_fixed.kpi_check_sql (KPI_ID, GROUP_ID, KPI_TYPE, KPI_DESC, CHK_FLAG, KPI_SQL)
+values ('INV_002_1', '2', 'Inventory', '', 'Y', 'SELECT COUNT(*) FROM TEST_TLF_FIXED_DATA.MID_FSISDN T WHERE T.INV_STATUS = ''Booked''');
