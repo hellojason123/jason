@@ -1,0 +1,92 @@
+# 脚本调用
+
+
+
+echo $1
+nohup ./tool.sh 01 2>01.log &
+nohup ./tool.sh 01 2>02.log &
+nohup ./tool.sh 01 2>03.log &
+nohup ./tool.sh 01 2>04.log &
+nohup ./tool.sh 01 2>05.log &
+nohup ./tool.sh 01 2>06.log &
+nohup ./tool.sh 01 2>07.log &
+nohup ./tool.sh 01 2>08.log &
+
+
+#! /usr/bin/ksh
+
+USERNAME = 'USERNAME'
+PASSWORD = 'PASSWORD'
+TNS_NAME = 'tnsname'
+
+sqlplus ${USERNAME}/${PASSWORD}@${TNSNAME}<<EOF
+exec update_uvc_card('$1');
+exit
+EOF
+
+
+
+
+#! /usr/bin/ksh
+USERNAME = 'USERNAME'
+PASSWORD = 'PASSWORD'
+TNSNAME = 'TNSNAME'
+
+
+# 调度的过程 schedule.sh
+# 配置依赖关系。
+#依赖关系如何在脚本中体现 ？ 如何判断已经执行完毕。
+# 哪些过程可以并行执行
+# 并行执行的最大数量。 系统的资源占用
+
+cur_dir = '/home/bes/migration/'
+cur_dir_log = '${cur_dir}/log/'
+cur_dir_tmp = '${cur_dir}/tmp/'
+
+MAX_RUN_NUM = 5
+
+cur_dir = `pwd`
+
+if [ ! -d ${cur_dir_log} ]
+then
+	mkdir ${cur_dir_log}
+else
+	rm -f ${cur_dir_log}
+	mkdir ${cur_dir_log}
+fi
+
+if [ ! -d ${cur_dir_tmp} ]
+then
+	mkdir ${cur_dir_tmp}
+else
+	rm -f ${cur_dir_tmp}
+	mkdir ${cur_dir_tmp}
+fi
+
+while [1 -eq 1]
+do
+
+	PSNUM = `ps -ef|grep "file = ${IMPFILE_DIR}/sta_cc" |wc  -l|bc`
+	RUN_NUM = expr `${PSNUM} - 1`
+	if [ ${RUN_NUM} -eq ${MAX_RUN_NUM} ]
+	then
+		sleep 20
+	else
+		break
+	fi
+done
+
+# waiting util import over
+
+while [1 -eq 1]
+do
+	PSNUM = `ps -ef|grep "file = ${DMPFILE_DIR}/sta_ccMPFILE_DIR}/sta_cc" |wc  -l|bc`
+	RUN_NUM = expr `${PSNUM} - 1`
+	if [ ${RUN_NUM} -g 0 ]
+	then
+		sleep 20
+	else
+		break
+	fi
+done
+
