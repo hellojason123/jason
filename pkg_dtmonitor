@@ -1,0 +1,787 @@
+create or replace package exe_fixed.pkg_dtmonitor as
+
+  type table_info_record is record(
+    info_dbid       dt_mont_user_tables.dbid%type,
+    info_user_name  dt_mont_user_tables.user_name%type,
+    info_table_name dt_mont_user_tables.table_name%type
+
+    );
+
+  type ttp_table_info_record is table of table_info_record index by binary_integer;
+
+  type column_info_record is record(
+    info_dbid        dt_mont_user_tab_cols.dbid%type,
+    info_user_name   dt_mont_user_tab_cols.user_name%type,
+    info_table_name  dt_mont_user_tab_cols.table_name%type,
+    info_column_name dt_mont_user_tab_cols.column_name%type);
+
+  type ttp_column_info_record is table of column_info_record index by binary_integer;
+
+  type column_type_info_record is record(
+    info_snap_id     dt_mont_user_tab_cols.snap_id%type,
+    info_dbid        dt_mont_user_tab_cols.dbid%type,
+    info_user_name   dt_mont_user_tab_cols.user_name%type,
+    info_table_name  dt_mont_user_tab_cols.table_name%type,
+    info_column_name dt_mont_user_tab_cols.column_name%type,
+    info_data_type   dt_mont_user_tab_cols.data_type%type);
+
+  type ttp_column_type_info_record is table of column_type_info_record index by binary_integer;
+
+  type column_length_info_record is record(
+    info_snap_id     dt_mont_user_tab_cols.snap_id%type,
+    info_dbid        dt_mont_user_tab_cols.dbid%type,
+    info_user_name   dt_mont_user_tab_cols.user_name%type,
+    info_table_name  dt_mont_user_tab_cols.table_name%type,
+    info_column_name dt_mont_user_tab_cols.column_name%type,
+    info_data_type   dt_mont_user_tab_cols.data_type%type,
+    info_data_length dt_mont_user_tab_cols.data_length%type);
+
+  type ttp_column_length_info_record is table of column_length_info_record index by binary_integer;
+
+  procedure snap(i_snap_level in number default null);
+
+  procedure purge(i_begin_snap      in number,
+                  i_end_snap        in number,
+                  i_snap_range      in boolean default true,
+                  i_dbid            in number default null,
+                  i_instance_number in number default null);
+
+  procedure purge_all_snap;
+  procedure purge_all_result;
+
+  procedure purge_compare_result(i_begin_result    in number,
+                                 i_end_result      in number,
+                                 i_result_range    in boolean default true,
+                                 i_dbid            in number default null,
+                                 i_instance_number in number default null);
+
+  procedure compare(i_begin_snap      in number,
+                    i_end_snap        in number,
+                    i_snap_range      in boolean default true,
+                    i_dbid            in number default null,
+                    i_instance_number in number default null);
+
+  procedure compare_add_tables(i_begin_snap        in number,
+                               i_end_snap          in out number,
+                               i_snap_range        in boolean default true,
+                               i_dbid              in number default null,
+                               i_instance_number   in number default null,
+                               o_table_info_record out ttp_table_info_record);
+  procedure compare_drop_tables(i_begin_snap        in number,
+                                i_end_snap          in out number,
+                                i_snap_range        in boolean default true,
+                                i_dbid              in number default null,
+                                i_instance_number   in number default null,
+                                o_table_info_record out ttp_table_info_record);
+
+  procedure compare_add_column(i_begin_snap         in number,
+                               i_end_snap           in out number,
+                               i_snap_range         in boolean default true,
+                               i_dbid               in number default null,
+                               i_instance_number    in number default null,
+                               o_column_info_record out ttp_column_info_record);
+  procedure compare_drop_column(i_begin_snap         in number,
+                                i_end_snap           in out number,
+                                i_snap_range         in boolean default true,
+                                i_dbid               in number default null,
+                                i_instance_number    in number default null,
+                                o_column_info_record out ttp_column_info_record);
+
+  procedure compare_modify_column_type(i_begin_snap              in number,
+                                       i_end_snap                in out number,
+                                       i_snap_range              in boolean default true,
+                                       i_dbid                    in number default null,
+                                       i_instance_number         in number default null,
+                                       o_column_type_info_record out ttp_column_type_info_record);
+
+  procedure compare_modify_column_length(i_begin_snap                in number,
+                                         i_end_snap                  in out number,
+                                         i_snap_range                in boolean default true,
+                                         i_dbid                      in number default null,
+                                         i_instance_number           in number default null,
+                                         o_column_length_info_record out ttp_column_length_info_record);
+
+end;
+/
+
+create or replace package body exe_fixed.pkg_dtmonitor is
+
+  procedure snap(i_snap_level in number default null) is
+    v_dbid            number;
+    v_snap_id         number;
+    v_instance_number number;
+    v_snap_level      number default 1;
+    v_user_name       varchar2(30);
+
+  begin
+    v_dbid            := null;
+    v_snap_id         := null;
+    v_instance_number := null;
+    v_user_name       := null;
+
+    select a.dbid into v_dbid from v$database a where rownum = 1;
+    select a.instance_number
+      into v_instance_number
+      from v$instance a
+     where rownum = 1;
+    select DT_DMTOOL_OPERID.nextval into v_snap_id from dual;
+    select a.username into v_user_name from user_users a where rownum = 1;
+
+    insert into dt_mont_snapshot
+      (snap_id, dbid, instance_number, snap_time, snap_level)
+    values
+      (v_snap_id, v_dbid, v_instance_number, sysdate, v_snap_level);
+    commit;
+
+    update dt_mont_snapshot a
+       set a.startup_time = sysdate
+     where a.snap_id = v_snap_id;
+    commit;
+
+    insert into dt_mont_user_tables
+      (snap_id,
+       dbid,
+       user_name,
+       table_name,
+       sample_size,
+       last_analyzed,
+       partitioned,
+       global_stats)
+      select v_snap_id,
+             v_dbid,
+             b.username,
+             table_name,
+             sample_size,
+             last_analyzed,
+             partitioned,
+             global_stats
+        from dba_tables a, dba_users b
+       where a.OWNER = b.username
+         and b.user_id > 55;
+
+    commit;
+
+    insert into dt_mont_user_tab_cols
+      (snap_id,
+       dbid,
+       user_name,
+       table_name,
+       column_name,
+       data_type,
+       data_length,
+       nullable,
+       column_id,
+       internal_column_id)
+      select v_snap_id,
+             v_dbid,
+             b.username,
+             a.table_name,
+             a.column_name,
+             a.data_type,
+             a.data_length,
+             a.nullable,
+             a.column_id,
+             a.internal_column_id
+        from dba_tab_cols a, dba_users b
+       where a.OWNER = b.username
+         and b.user_id > 55;
+
+    commit;
+
+    update dt_mont_snapshot a
+       set a.snapshot_exec_time_s =
+           (sysdate - a.startup_time) * 24 * 3600
+     where a.snap_id = v_snap_id;
+    commit;
+
+  end snap;
+
+  procedure purge(i_begin_snap      in number,
+                  i_end_snap        in number,
+                  i_snap_range      in boolean default true,
+                  i_dbid            in number default null,
+                  i_instance_number in number default null) is
+  begin
+
+    delete from dt_mont_snapshot a
+     where a.snap_id >= i_begin_snap
+       and a.snap_id <= i_end_snap;
+    delete from dt_mont_user_tables a
+     where a.snap_id >= i_begin_snap
+       and a.snap_id <= i_end_snap;
+    delete from dt_mont_user_tab_cols a
+     where a.snap_id >= i_begin_snap
+       and a.snap_id <= i_end_snap;
+    commit;
+  end purge;
+
+  procedure purge_all_snap is
+    cursor cs is
+      select a.table_name
+        from user_tables a
+       where a.table_name in ('DT_MONT_SNAPSHOT',
+                              'DT_MONT_USER_TABLES',
+                              'DT_MONT_USER_TAB_COLS');
+  begin
+    for v_cs in cs loop
+      execute immediate 'truncate table ' || v_cs.table_name;
+    end loop;
+  exception
+    when others then
+      null;
+
+  end purge_all_snap;
+
+  procedure purge_compare_result(i_begin_result    in number,
+                                 i_end_result      in number,
+                                 i_result_range    in boolean default true,
+                                 i_dbid            in number default null,
+                                 i_instance_number in number default null) is
+  begin
+    delete from dt_mont_operation_result a
+     where a.result_id >= i_begin_result
+       and a.result_id <= i_end_result;
+    commit;
+  exception
+    when others then
+      null;
+
+  end purge_compare_result;
+
+  procedure purge_all_result is
+    cursor cs is
+      select a.table_name
+        from user_tables a
+       where a.table_name in (upper('DT_MONT_OPERATION_RESULT'));
+  begin
+    for v_cs in cs loop
+      execute immediate 'truncate table ' || v_cs.table_name;
+    end loop;
+  exception
+    when others then
+      null;
+
+  end purge_all_result;
+
+  procedure compare(i_begin_snap      in number,
+                    i_end_snap        in number,
+                    i_snap_range      in boolean default true,
+                    i_dbid            in number default null,
+                    i_instance_number in number default null) is
+    v_table_info_record         ttp_table_info_record;
+    v_column_info_record        ttp_column_info_record;
+    v_column_type_info_record   ttp_column_type_info_record;
+    v_column_length_info_record ttp_column_length_info_record;
+    v_begin_snap                number;
+    v_end_snap                  number;
+    v_count_result              number;
+
+    v_result_id number;
+
+  begin
+    v_begin_snap   := i_begin_snap;
+    v_end_snap     := i_end_snap;
+    v_count_result := 0;
+
+    select count(*)
+      into v_count_result
+      from dt_mont_operation_result a
+     where a.snap_begin_id = v_begin_snap
+       and a.snap_end_id = v_end_snap;
+
+    if v_count_result > 0 then
+      return;
+    end if;
+
+    select DT_DMTOOL_OPERID.nextval into v_result_id from dual;
+
+    --add tables
+    compare_add_tables(i_begin_snap        => v_begin_snap,
+                       i_end_snap          => v_end_snap,
+                       o_table_info_record => v_table_info_record);
+
+    if v_table_info_record.count > 0 then
+      for i in v_table_info_record.first .. v_table_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           oper_type, --create_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_begin_snap,
+           v_end_snap,
+           v_table_info_record(i).info_dbid,
+           v_table_info_record(i).info_user_name,
+           v_table_info_record(i).info_table_name,
+           null,
+           'create_table',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+
+    --drop tables
+    compare_drop_tables(i_begin_snap        => v_begin_snap,
+                        i_end_snap          => v_end_snap,
+                        o_table_info_record => v_table_info_record);
+
+    if v_table_info_record.count > 0 then
+      for i in v_table_info_record.first .. v_table_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           oper_type, --add_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_begin_snap,
+           v_end_snap,
+           v_table_info_record(i).info_dbid,
+           v_table_info_record(i).info_user_name,
+           v_table_info_record(i).info_table_name,
+           null,
+           'drop_table',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+
+    --add cloumn
+    compare_add_column(i_begin_snap         => v_begin_snap,
+                       i_end_snap           => v_end_snap,
+                       o_column_info_record => v_column_info_record);
+
+    if v_column_info_record.count > 0 then
+      for i in v_column_info_record.first .. v_column_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           oper_type, --add_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_begin_snap,
+           v_end_snap,
+           v_column_info_record(i).info_dbid,
+           v_column_info_record(i).info_user_name,
+           v_column_info_record(i).info_table_name,
+           v_column_info_record(i).info_column_name,
+           'add_column',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+
+    --drop column
+    compare_drop_column(i_begin_snap         => v_begin_snap,
+                        i_end_snap           => v_end_snap,
+                        o_column_info_record => v_column_info_record);
+
+    if v_column_info_record.count > 0 then
+      for i in v_column_info_record.first .. v_column_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           oper_type, --add_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_begin_snap,
+           v_end_snap,
+           v_column_info_record(i).info_dbid,
+           v_column_info_record(i).info_user_name,
+           v_column_info_record(i).info_table_name,
+           v_column_info_record(i).info_column_name,
+           'drop_column',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+
+    --modify column type
+    compare_modify_column_type(i_begin_snap              => v_begin_snap,
+                               i_end_snap                => v_end_snap,
+                               o_column_type_info_record => v_column_type_info_record);
+
+    if v_column_type_info_record.count > 0 then
+      for i in v_column_type_info_record.first .. v_column_type_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+           snap_id,
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           data_type,
+           oper_type, --add_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_column_type_info_record(i).info_snap_id,
+           v_begin_snap,
+           v_end_snap,
+           v_column_type_info_record(i).info_dbid,
+           v_column_type_info_record(i).info_user_name,
+           v_column_type_info_record(i).info_table_name,
+           v_column_type_info_record(i).info_column_name,
+           v_column_type_info_record(i).info_data_type,
+           'modi_col_type',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+    --modify column length
+    compare_modify_column_length(i_begin_snap                => v_begin_snap,
+                                 i_end_snap                  => v_end_snap,
+                                 o_column_length_info_record => v_column_length_info_record);
+
+    if v_column_length_info_record.count > 0 then
+      for i in v_column_length_info_record.first .. v_column_length_info_record.last loop
+        insert into dt_mont_operation_result
+          (result_id,
+           snap_id,
+           snap_begin_id, --i_begin_snap ==> i_end_snap
+           snap_end_id,
+           dbid,
+           user_name,
+           table_name,
+           column_name,
+           data_type,
+           data_length,
+           oper_type, --add_table,drop_table,add_column,drop_column,modi_col_type,modi_col_length
+           oper_time)
+        values
+          (v_result_id,
+           v_column_length_info_record(i).info_snap_id,
+           v_begin_snap,
+           v_end_snap,
+           v_column_length_info_record(i).info_dbid,
+           v_column_length_info_record(i).info_user_name,
+           v_column_length_info_record(i).info_table_name,
+           v_column_length_info_record(i).info_column_name,
+           v_column_length_info_record(i).info_data_type,
+           v_column_length_info_record(i).info_data_length,
+           'modi_col_length',
+           sysdate);
+
+      end loop;
+
+      commit;
+    end if;
+
+  end
+
+  ;
+
+  procedure compare_add_tables(i_begin_snap        in number,
+                               i_end_snap          in out number,
+                               i_snap_range        in boolean default true,
+                               i_dbid              in number default null,
+                               i_instance_number   in number default null,
+                               o_table_info_record out ttp_table_info_record) is
+
+    cursor cs is
+      select a.dbid, a.user_name, a.table_name
+        from dt_mont_user_tables a
+       where a.snap_id = i_end_snap
+      minus
+      select a.dbid, a.user_name, a.table_name
+        from dt_mont_user_tables a
+       where a.snap_id = i_begin_snap;
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_table_info_record;
+    close cs;
+
+    if o_table_info_record.count > 0 then
+      for i in o_table_info_record.first .. o_table_info_record.last loop
+        dbms_output.put_line(o_table_info_record(i).info_table_name);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+  procedure compare_drop_tables(i_begin_snap        in number,
+                                i_end_snap          in out number,
+                                i_snap_range        in boolean default true,
+                                i_dbid              in number default null,
+                                i_instance_number   in number default null,
+                                o_table_info_record out ttp_table_info_record) is
+
+    cursor cs is
+      select a.dbid, a.user_name, a.table_name
+        from dt_mont_user_tables a
+       where a.snap_id = i_begin_snap
+      minus
+      select a.dbid, a.user_name, a.table_name
+        from dt_mont_user_tables a
+       where a.snap_id = i_end_snap;
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_table_info_record;
+    close cs;
+
+    if o_table_info_record.count > 0 then
+      for i in o_table_info_record.first .. o_table_info_record.last loop
+        dbms_output.put_line(o_table_info_record(i).info_table_name);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+  procedure compare_add_column(i_begin_snap         in number,
+                               i_end_snap           in out number,
+                               i_snap_range         in boolean default true,
+                               i_dbid               in number default null,
+                               i_instance_number    in number default null,
+                               o_column_info_record out ttp_column_info_record) is
+
+    cursor cs is
+      select aa.dbid, aa.user_name, aa.table_name, aa.column_name
+        from (select a.dbid, a.user_name, a.table_name, a.column_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_end_snap
+              minus
+              select a.dbid, a.user_name, a.table_name, a.column_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_begin_snap) aa
+       where (aa.dbid, aa.user_name, aa.table_name) not in
+             (select a.dbid, a.user_name, a.table_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_end_snap
+              minus
+              select a.dbid, a.user_name, a.table_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_begin_snap);
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_column_info_record;
+    close cs;
+
+    if o_column_info_record.count > 0 then
+      for i in o_column_info_record.first .. o_column_info_record.last loop
+        dbms_output.put_line(o_column_info_record(i).info_table_name || '.' || o_column_info_record(i)
+                             .info_column_name);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+  procedure compare_drop_column(i_begin_snap         in number,
+                                i_end_snap           in out number,
+                                i_snap_range         in boolean default true,
+                                i_dbid               in number default null,
+                                i_instance_number    in number default null,
+                                o_column_info_record out ttp_column_info_record) is
+
+    cursor cs is
+      select aa.dbid, aa.user_name, aa.table_name, aa.column_name
+        from (select a.dbid, a.user_name, a.table_name, a.column_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_begin_snap
+              minus
+              select a.dbid, a.user_name, a.table_name, a.column_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_end_snap) aa
+       where (aa.dbid, aa.user_name, aa.table_name) not in
+             (select a.dbid, a.user_name, a.table_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_begin_snap
+              minus
+              select a.dbid, a.user_name, a.table_name
+                from dt_mont_user_tab_cols a
+               where a.snap_id = i_end_snap);
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_column_info_record;
+    close cs;
+
+    if o_column_info_record.count > 0 then
+      for i in o_column_info_record.first .. o_column_info_record.last loop
+        dbms_output.put_line(o_column_info_record(i).info_table_name || '.' || o_column_info_record(i)
+                             .info_column_name);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+  procedure compare_modify_column_type(i_begin_snap              in number,
+                                       i_end_snap                in out number,
+                                       i_snap_range              in boolean default true,
+                                       i_dbid                    in number default null,
+                                       i_instance_number         in number default null,
+                                       o_column_type_info_record out ttp_column_type_info_record) is
+
+    cursor cs is
+      select bb.snap_id,
+             aa.dbid,
+             aa.user_name,
+             aa.table_name,
+             aa.column_name,
+             bb.data_type
+        from (select a.dbid,
+                     a.user_name,
+                     a.table_name,
+                     a.column_name,
+                     count(distinct a.data_type)
+                from dt_mont_user_tab_cols a
+               where a.snap_id in (i_begin_snap, i_end_snap)
+               group by a.dbid, a.user_name, a.table_name, a.column_name
+              having count(distinct a.data_type) > 1) aa,
+             dt_mont_user_tab_cols bb
+       where aa.dbid = bb.dbid
+         and aa.user_name = bb.user_name
+         and aa.table_name = bb.table_name
+         and aa.column_name = bb.column_name
+         and bb.snap_id in (i_begin_snap, i_end_snap);
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_column_type_info_record;
+    close cs;
+
+    if o_column_type_info_record.count > 0 then
+      for i in o_column_type_info_record.first .. o_column_type_info_record.last loop
+        dbms_output.put_line(o_column_type_info_record(i).info_table_name || '.' || o_column_type_info_record(i)
+                             .info_column_name || '.' || o_column_type_info_record(i)
+                             .info_data_type);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+  procedure compare_modify_column_length(i_begin_snap                in number,
+                                         i_end_snap                  in out number,
+                                         i_snap_range                in boolean default true,
+                                         i_dbid                      in number default null,
+                                         i_instance_number           in number default null,
+                                         o_column_length_info_record out ttp_column_length_info_record) is
+    cursor cs is
+      select bb.snap_id,
+             aa.dbid,
+             aa.user_name,
+             aa.table_name,
+             aa.column_name,
+             aa.data_type,
+             bb.data_length
+        from (select a.dbid,
+                     a.user_name,
+                     a.table_name,
+                     a.column_name,
+                     a.data_type,
+                     count(distinct a.data_length)
+                from dt_mont_user_tab_cols a
+               where a.snap_id in (i_begin_snap, i_end_snap)
+               group by a.dbid,
+                        a.user_name,
+                        a.table_name,
+                        a.column_name,
+                        a.data_type
+              having count(distinct a.data_length) > 1) aa,
+             dt_mont_user_tab_cols bb
+       where aa.dbid = bb.dbid
+         and aa.user_name = bb.user_name
+         and aa.table_name = bb.table_name
+         and aa.column_name = bb.column_name
+         and aa.data_type = bb.data_type
+         and bb.snap_id in (i_begin_snap, i_end_snap);
+
+  begin
+    open cs;
+    fetch cs bulk collect
+      into o_column_length_info_record;
+    close cs;
+
+    if o_column_length_info_record.count > 0 then
+      for i in o_column_length_info_record.first .. o_column_length_info_record.last loop
+        dbms_output.put_line(o_column_length_info_record(i)
+                             .info_table_name || '.' || o_column_length_info_record(i)
+                             .info_column_name || '.' || o_column_length_info_record(i)
+                             .info_data_length);
+      end loop;
+    end if;
+
+  exception
+    when others then
+      null;
+
+  end
+
+  ;
+
+end;
+/
+
