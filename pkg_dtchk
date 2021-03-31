@@ -1,0 +1,1278 @@
+create or replace package exe_fixed.pkg_dtchk is
+
+  /**********************************************************************************
+  NAME:       pkg_dtchk
+  PURPOSE:    Reconciliation audit framework
+  REVISIONS:
+  Ver        Date         Author                  Description
+  ---------  ----------  ----------------------   ------------------------------------
+  D1.0       2012-01-15   guihongliang 126661     1.initialize
+  NOTES:
+
+  **********************************************************************************/
+
+  type type_chk_item is record(
+    itemid          varchar2(32),
+    item_desc       varchar2(128),
+    match_sql       varchar2(600),
+    dict_mapgroupid varchar2(32),
+    table_list      varchar2(32),
+    field_list      varchar2(32),
+    schema_name     varchar2(128),
+    si_usertype     varchar2(32),
+    check_sql       varchar2(1024),
+    --  GROUPNO     NUMBER,
+    meaning_sql varchar2(600),
+    check_sql1  varchar2(2048));
+
+  function f_replaceconstantstrs
+  (
+    i_regioncode in number,
+    in_strs      in varchar2,
+    --- in_log         in pkg_dtlog.log_record,
+    in_schema_name in varchar2
+  ) return varchar2;
+
+  procedure p_chk_new
+  (
+    i_regioncode number,
+    i_groupname  varchar2
+  );
+
+  procedure p_chk(i_regioncode number);
+
+  procedure p_chk_fillmean
+  (
+    i_regioncode      in number,
+    in_chkitem_record type_chk_item,
+    in_log            pkg_dtlog.log_record
+  );
+
+  procedure p_chk_sum(i_regioncode in number);
+  procedure p_chk_quality(i_regioncode in number);
+
+  procedure p_dt_validrule
+  (
+    i_region in number,
+    i_index  in number
+  );
+
+end;
+/
+
+create or replace package body exe_fixed.pkg_dtchk is
+
+  function f_replaceconstantstrs
+  (
+    i_regioncode in number,
+    in_strs      in varchar2,
+    ---in_log         in pkg_dtlog.log_record,
+    in_schema_name in varchar2
+  ) return varchar2 is
+    v_sql          varchar2(1024);
+    v_schema       varchar2(64);
+    int_pos        integer;
+    v_groupid      varchar2(32);
+    v_fromuser     varchar2(32);
+    v_touser       varchar2(32);
+    v_sch_fromuser varchar2(32);
+    v_sch_touser   varchar2(32);
+    v_grp1         varchar2(64);
+  begin
+
+    v_sql := in_strs;
+
+    if in_schema_name is null then
+      return v_sql;
+    else
+      v_schema := in_schema_name;
+      while v_schema is not null loop
+        int_pos := instrb(v_schema, ';', 1);
+        if int_pos = 0 then
+          v_grp1   := v_schema;
+          v_schema := null;
+        else
+          v_grp1   := substrb(v_schema, 1, int_pos - 1);
+          v_schema := substrb(v_schema, int_pos + 1);
+        end if;
+
+        int_pos := instrb(v_grp1, ',', 1);
+        if int_pos = 0 then
+          v_groupid := v_grp1;
+        else
+          v_groupid := substrb(v_grp1, 1, int_pos - 1);
+          v_grp1    := substrb(v_grp1, int_pos + 1);
+          if trim(v_grp1) is not null then
+
+            int_pos := instrb(v_grp1, ',', 1);
+
+            v_fromuser := substrb(v_grp1, 1, int_pos - 1);
+            v_touser   := substrb(v_grp1, int_pos + 1);
+          end if;
+        end if;
+
+        select b.from_user,
+               b.to_user
+        into   v_sch_fromuser,
+               v_sch_touser
+        from   dt_schemas b
+        where  b.group_id = v_groupid;
+
+        if trim(v_fromuser) is not null then
+          v_sql := replace(v_sql, v_fromuser, v_sch_fromuser);
+        end if;
+
+        if trim(v_touser) is not null then
+          v_sql := replace(v_sql, v_touser, v_sch_touser);
+        end if;
+
+        v_sql := replace(v_sql, 'regioncode', i_regioncode);
+
+      end loop;
+      return v_sql;
+    end if;
+  end;
+  ----------------------------------------------------------------------------
+  --
+  --
+  --
+  ----------------------------------------------------------------------------
+  procedure p_chk_new
+  (
+    i_regioncode number,
+    i_groupname  varchar2
+  ) is
+
+    v_log        pkg_dtlog.log_record;
+    v_err_record pkg_dtlog.err_record;
+
+    chkitem_record   type_chk_item;
+    v_sql            varchar2(4000);
+    v_in_len         number(10);
+    v_qrychkitem_sql varchar2(4000);
+
+    in_groupno number;
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+  begin
+
+    in_groupno    := substrb(i_regioncode, 4);
+    v_log.region  := substrb(i_regioncode, 1, 3);
+    v_log.oper_id := pkg_dtlog.f_get_operid;
+
+    v_log.object_name   := 'PKG_DTCHK.P_CHK';
+    v_log.register_name := 'PKG_DTCHK.P_CHK:' || in_groupno;
+
+    pkg_dtlog.p_register(v_log);
+
+    if i_groupname is not null then
+
+      v_qrychkitem_sql := 'select b.itemid,b.item_desc,b.match_sql, ' || ' b.dict_mapgroupid,d.table_list,d.field_list,d.schema_name, ' ||
+                          ' d.si_usertype,d.check_sql,d.meaning_sql,d.check_sql1 ' || ' from tool_chk_item b,tool_chk_item_detail d ' || ---
+                          ' where b.itemid = d.itemid and ' || ---
+                          '  b.si_status <>0 and d.si_status <> 0 and b.group_name = ''' || i_groupname || '''';
+    else
+      v_qrychkitem_sql := 'select b.itemid,b.item_desc,b.match_sql, ' || --
+                          ' b.dict_mapgroupid,d.table_list,d.field_list,d.schema_name,' || ---
+                          ' d.si_usertype,d.check_sql,d.meaning_sql,d.check_sql1' || ---
+                          ' from tool_chk_item b,tool_chk_item_detail d ' || ---
+                          ' where b.itemid = d.itemid and b.si_status <>0  and d.si_status <> 0';
+    end if;
+
+    open cur_list for v_qrychkitem_sql;
+    loop
+      begin
+        fetch cur_list
+          into chkitem_record;
+        exit when cur_list%notfound;
+
+        if i_regioncode = 999 then
+
+          delete from dt_chk_result
+          where  si_usertype = chkitem_record.si_usertype and
+                 itemid = chkitem_record.itemid;
+        else
+          delete from dt_chk_result
+          where  si_usertype = chkitem_record.si_usertype and
+                 itemid = chkitem_record.itemid and
+                 (region = i_regioncode or region is null);
+        end if;
+        commit;
+
+        v_sql := chkitem_record.check_sql;
+        if chkitem_record.check_sql1 is not null then
+          v_sql := v_sql || chkitem_record.check_sql1;
+        end if;
+
+        v_in_len := instr(chkitem_record.check_sql, 'select', 1, 1);
+
+        v_sql := f_replaceconstantstrs(i_regioncode, v_sql, chkitem_record.schema_name);
+
+        if chkitem_record.si_usertype = 'LEGACY' then
+
+          v_sql := substr(v_sql, 1, v_in_len + 5) || ' ''' || chkitem_record.si_usertype || ''',sysdate,''' || chkitem_record.itemid || ''',' ||
+                   v_log.region || ', ' || substr(v_sql, v_in_len + 6);
+        else
+          v_sql := substr(v_sql, 1, v_in_len + 5) || ' ''' || chkitem_record.si_usertype || ''',sysdate,''' || chkitem_record.itemid || ''', ' ||
+                   v_log.region || ',' || substr(v_sql, v_in_len + 6);
+        end if;
+
+        v_sql := 'INSERT INTO DT_CHK_RESULT NOLOGGING (SI_USERTYPE,CHECK_DATE,ITEMID,REGION,FIELD_VALUE,COUNT_VALUES) ' || v_sql;
+
+        dbms_output.put_line(substr(v_sql, 1, 1000));
+        dbms_output.put_line('---------------------');
+        dbms_output.put_line(substr(v_sql, 1000 + 1));
+        execute immediate v_sql;
+        v_log.success_num := v_log.success_num + sql%rowcount;
+
+        commit;
+
+        p_chk_fillmean(i_regioncode, chkitem_record, v_log);
+      exception
+        when others then
+          v_log.fail_num         := v_log.fail_num + 1;
+          v_err_record.key_name  := 'itemid';
+          v_err_record.key_value := chkitem_record.itemid;
+          v_err_record.ora_msg   := substr(sqlerrm, 1, 254);
+          rollback;
+          pkg_dtlog.p_exception(v_log, v_err_record);
+
+      end;
+    end loop;
+
+    commit;
+
+    pkg_dtlog.p_complete(v_log);
+
+    commit;
+
+  end;
+  ----------------------------------------------------------------------------
+  --
+  --
+  --
+  ----------------------------------------------------------------------------
+  procedure p_chk(i_regioncode number) is
+
+    v_log        pkg_dtlog.log_record;
+    v_err_record pkg_dtlog.err_record;
+
+    chkitem_record type_chk_item;
+
+    v_sql    varchar2(1500);
+    v_in_len number(10);
+
+    v_qrychkitem_sql varchar2(1024);
+
+    in_groupno number;
+    /*cur_Row tab_record;  --??*/
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+  begin
+
+    in_groupno    := substrb(i_regioncode, 4);
+    v_log.region  := substrb(i_regioncode, 1, 3);
+    v_log.oper_id := pkg_dtlog.f_get_operid;
+
+    v_log.object_name   := 'PKG_DTCHK.P_CHK';
+    v_log.register_name := 'PKG_DTCHK.P_CHK:' || in_groupno;
+
+    pkg_dtlog.p_register(v_log);
+
+    if in_groupno <> 0 then
+
+      --    v_qrychkItem_sql := 'select * from  tool_chk_item
+      --              where   si_status<>''0'' and groupno='||in_groupno;
+
+      v_qrychkitem_sql := 'select b.itemid,b.item_desc,b.match_sql,
+       b.dict_mapgroupid,d.table_list,d.field_list,d.schema_name,
+       d.si_usertype,d.check_sql,d.meaning_sql,b.CHECK_SQL1
+       from tool_chk_item b,tool_chk_item_detail d
+         where b.itemid = d.itemid and b.si_status <>0
+          and d.si_status <> 0 and d.groupno = ' || in_groupno;
+    else
+      v_qrychkitem_sql := 'select b.itemid,b.item_desc,b.match_sql,
+       b.dict_mapgroupid,d.table_list,d.field_list,d.schema_name,
+       d.si_usertype,d.check_sql,d.meaning_sql,,b.CHECK_SQL1
+       from tool_chk_item b,tool_chk_item_detail d
+         where b.itemid = d.itemid and b.si_status <>0
+          and d.si_status <> 0';
+    end if;
+
+    open cur_list for v_qrychkitem_sql;
+    loop
+      begin
+        --??????
+        fetch cur_list
+          into chkitem_record;
+        exit when cur_list%notfound;
+
+        ----????????,??????????????????????????old_dbuser?????            --??BOSS?????New_dbuser,sys_dbuser,???NEW_BOSS???BOSS?:OLD_BOSS
+
+        if i_regioncode = 999 then
+          --?????????
+          delete from dt_chk_result
+          where  si_usertype = chkitem_record.si_usertype and
+                 itemid = chkitem_record.itemid;
+        else
+          delete from dt_chk_result
+          where  si_usertype = chkitem_record.si_usertype and
+                 itemid = chkitem_record.itemid and
+                 (region = i_regioncode or region is null);
+        end if;
+        commit;
+        ---???????sql??---
+        v_sql := chkitem_record.check_sql;
+
+        --  v_sql:=LOWER(v_sql);
+
+        v_in_len := instr(chkitem_record.check_sql, 'select', 1, 1);
+
+        -----????????????--
+
+        v_sql := f_replaceconstantstrs(i_regioncode,
+                                       ---
+                                       v_sql,
+                                       ----
+                                       ----v_log, ----
+                                       chkitem_record.schema_name);
+
+        -------------------------
+
+        ----------?????sql??????????source??from??---
+
+        /*             if in_groupno <> 1 then  --????????????hint???????                 v_sql:=substr(v_sql,1,v_in_len+5)||' \*+ rule *\ '''||chkitem_record.datasource||''','''||chkitem_record.itemid||''', '||substr(v_sql,v_in_len+6);
+        else*/
+
+        if chkitem_record.si_usertype = 'LEGACY' then
+          --????????region?????????????region
+
+          v_sql := substr(v_sql, 1, v_in_len + 6) || ' ''' || chkitem_record.si_usertype || ''',sysdate,''' || chkitem_record.itemid || ''','''', ' ||
+                   substr(v_sql, v_in_len + 7);
+        else
+          v_sql := substr(v_sql, 1, v_in_len + 6) || ' ''' || chkitem_record.si_usertype || ''',sysdate,''' || chkitem_record.itemid || ''', ' ||
+                   substr(v_sql, v_in_len + 7);
+        end if;
+        /*             end if ;*/
+
+        v_sql := 'insert into tool_chk_result nologging (si_usertype,CHECK_DATE,itemid,region,FIELD_VALUE,COUNT_VALUES) ' || v_sql;
+
+        -----------????????---------
+        /*           update tool_chk_item b set b.check_starttime = sysdate,b.check_endtime = null where b.itemid = chkitem_record.itemid
+        and b.si = chkitem_record.datasource;*/
+        --------
+        execute immediate v_sql;
+        v_log.success_num := v_log.success_num + sql%rowcount;
+
+        commit;
+
+        ------------------------??????
+        p_chk_fillmean(i_regioncode, chkitem_record, v_log);
+
+        -----------------------????????-----
+        /*            update dt_chk_item b set b.check_endtime = sysdate where b.itemid = chkitem_record.itemid
+        and b.datasource = chkitem_record.datasource;*/
+
+      exception
+        when others then
+          v_log.fail_num         := v_log.fail_num + 1;
+          v_err_record.key_name  := 'itemid';
+          v_err_record.key_value := chkitem_record.itemid;
+
+          v_err_record.ora_msg := substr(sqlerrm, 1, 254);
+
+          rollback;
+          pkg_dtlog.p_exception(v_log, v_err_record);
+
+        /*       insert into dt_chk_result(datasource,itemid,notes) values (chkitem_record.datasource,chkitem_record.itemid,err_txt);
+        commit;*/
+
+      end;
+    end loop;
+
+    commit;
+
+    pkg_dtlog.p_complete(v_log);
+
+    commit;
+
+  end;
+  ----------------------------------------------------------------------------
+  --
+  --
+  --
+  ----------------------------------------------------------------------------
+  procedure p_chk_fillmean(i_regioncode in number,
+                           --in_chkitem_record tool_chk_item%rowtype,
+                           in_chkitem_record type_chk_item,
+                           in_log            pkg_dtlog.log_record
+
+                           ) as
+
+    v_err_record pkg_dtlog.err_record;
+    v_sql        varchar2(1024);
+    v_update_sql varchar2(1024);
+
+    type meantype_record is record(
+      fielddata varchar2(64),
+      fielddesc varchar2(128));
+
+    v_meantype meantype_record;
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+  begin
+
+    if trim(in_chkitem_record.dict_mapgroupid) is not null then
+
+      if in_chkitem_record.si_usertype = 'LEGACY' then
+        v_sql := 'select b.old_id,b.old_desc
+             from mt_dict_mapping b where b.group_id = ''' || in_chkitem_record.dict_mapgroupid || '''';
+      else
+        v_sql := 'select b.new_id,b.new_desc
+             from mt_dict_mapping b where b.group_id = ''' || in_chkitem_record.dict_mapgroupid || '''';
+      end if;
+
+    else
+      v_sql := in_chkitem_record.meaning_sql;
+
+      if trim(v_sql) is not null then
+
+        v_sql := f_replaceconstantstrs(i_regioncode,
+                                       ----
+                                       v_sql,
+                                       ---
+                                       ---in_log, ---
+                                       in_chkitem_record.schema_name);
+      end if;
+    end if;
+    -------------------------
+    v_update_sql := 'update tool_chk_result b set b.values_desc =:v_desc
+           where b.FIELD_VALUE =:v_fieldvalue and b.itemid = :v_itemId and
+            b.si_usertype = :v_si_usertype ';
+
+    if trim(v_sql) is null then
+      return;
+    end if;
+
+    open cur_list for v_sql;
+    loop
+
+      begin
+        --??????
+        fetch cur_list
+          into v_meantype;
+        exit when cur_list%notfound;
+
+        execute immediate v_update_sql
+          using v_meantype.fielddesc, v_meantype.fielddata, in_chkitem_record.itemid, in_chkitem_record.si_usertype;
+
+      exception
+        when others then
+          --   in_log.fail_num := in_log.fail_num +  1;
+          v_err_record.key_name  := in_chkitem_record.itemid;
+          v_err_record.key_value := v_meantype.fielddata;
+
+          v_err_record.ora_msg := substr(sqlerrm, 1, 254);
+          pkg_dtlog.p_exception(in_log, v_err_record);
+
+      end;
+    end loop;
+
+  end;
+  ----------------------------------------------------------------------------
+  --
+  --
+  --
+  ----------------------------------------------------------------------------
+  procedure p_chk_sum(i_regioncode in number) as
+
+    type match_record is record(
+      old_value varchar2(64),
+      new_value varchar2(63));
+
+    v_match_record match_record;
+
+    v_qrychkitem_sql varchar2(1024);
+    --  chkitem_record tool_chk_item%rowtype;
+    chkitem_record type_chk_item;
+    --v_chk
+    v_log        pkg_dtlog.log_record;
+    v_sql        varchar2(1024);
+    v_err_record pkg_dtlog.err_record;
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+    cur_list2 ref_cursor_type;
+
+    v_oldtablename varchar2(32);
+    v_oldfieldname varchar2(32);
+    v_newtablename varchar2(32);
+    v_newfieldname varchar2(32);
+    in_groupno     number;
+  begin
+
+    in_groupno   := substrb(i_regioncode, 4);
+    v_log.region := substrb(i_regioncode, 1, 3);
+
+    v_log.oper_id := pkg_dtlog.f_get_operid;
+
+    v_log.object_name   := 'PKG_DTCHK.P_CHK_SUM';
+    v_log.register_name := 'PKG_DTCHK.P_CHK_SUM:' || in_groupno;
+
+    pkg_dtlog.p_register(v_log);
+
+    v_qrychkitem_sql := 'select distinct b.itemid,b.match_sql,b.dict_mapgroupid from DT_CHK_ITEM b where b.si_status <> 0 ';
+
+    open cur_list for v_qrychkitem_sql;
+    loop
+      begin
+
+        fetch cur_list
+          into chkitem_record.itemid,
+               chkitem_record.match_sql,
+               chkitem_record.dict_mapgroupid;
+        exit when cur_list%notfound;
+
+        if trim(chkitem_record.dict_mapgroupid) is null then
+          v_sql := chkitem_record.match_sql;
+          v_sql := f_replaceconstantstrs(i_regioncode, v_sql, chkitem_record.schema_name);
+
+        else
+          v_sql := 'select b.old_id,b.new_id from mt_dict_mapping b where b.group_id = ''' || chkitem_record.dict_mapgroupid || '''';
+        end if;
+
+        begin
+          select b.table_list,
+                 b.field_list
+          into   v_oldtablename,
+                 v_oldfieldname
+          from   dt_chk_item_detail b
+          where  b.itemid = chkitem_record.itemid and
+                 b.si_usertype = 'LEGACY';
+        exception
+          when others then
+            v_oldtablename := null;
+            v_oldfieldname := null;
+        end;
+
+        begin
+          select b.table_list,
+                 b.field_list
+          into   v_newtablename,
+                 v_newfieldname
+          from   dt_chk_item_detail b
+          where  b.itemid = chkitem_record.itemid and
+                 b.si_usertype = 'TARGET';
+        exception
+          when others then
+            v_newtablename := null;
+            v_newfieldname := null;
+
+        end;
+
+        delete from dt_chk_sum b where b.itemid = chkitem_record.itemid;
+        commit;
+
+        if v_sql is not null then
+          open cur_list2 for v_sql;
+          loop
+            begin
+
+              fetch cur_list2
+                into v_match_record;
+              exit when cur_list2%notfound;
+
+              insert into dt_chk_sum
+                (region,
+                 itemid,
+                 old_tablename,
+                 old_fieldname,
+                 new_tablename,
+                 new_fieldname,
+                 old_values,
+                 old_meaning,
+                 old_count,
+                 new_values,
+                 new_meaning,
+                 new_count,
+                 diff_count)
+                select aa.region,
+                       aa.itemid,
+                       aa.table_list,
+                       aa.field_list,
+                       bb.table_list,
+                       bb.field_list,
+                       aa.field_value,
+                       aa.values_desc,
+                       aa.count_values,
+                       bb.field_value,
+                       bb.values_desc,
+                       bb.count_values,
+                       bb.count_values - aa.count_values
+                from   (select a.region,
+                               a.itemid,
+                               b.table_list,
+                               b.field_list,
+                               a.field_value,
+                               a.values_desc,
+                               a.count_values
+                        from   dt_chk_result      a,
+                               dt_chk_item_detail b
+                        where  a.itemid = b.itemid and
+                               a.si_usertype = b.si_usertype and
+                               a.itemid = chkitem_record.itemid and
+                               a.si_usertype = 'LEGACY' and
+                               a.field_value = v_match_record.old_value) aa,
+
+                       (select c.region,
+                               c.itemid,
+                               d.table_list,
+                               d.field_list,
+                               c.field_value,
+                               c.values_desc,
+                               c.count_values
+                        from   dt_chk_result      c,
+                               dt_chk_item_detail d
+                        where  c.itemid = d.itemid and
+                               c.si_usertype = d.si_usertype and
+                               c.itemid = chkitem_record.itemid and
+                               c.si_usertype = 'TARGET' and
+                               c.field_value = v_match_record.new_value) bb
+
+                where  aa.itemid = bb.itemid and
+                       (aa.region = bb.region or (aa.region is null and bb.region is null));
+
+              if sql%rowcount > 0 then
+                update dt_chk_result a
+                set    a.ismatch = 1
+                where  a.itemid = chkitem_record.itemid and
+                       a.si_usertype = 'LEGACY' and
+                       a.field_value = v_match_record.old_value;
+
+                update dt_chk_result a
+                set    a.ismatch = 1
+                where  a.itemid = chkitem_record.itemid and
+                       a.si_usertype = 'TARGET' and
+                       a.field_value = v_match_record.new_value;
+
+              end if;
+
+              commit;
+
+              -----------------------------------------------------
+
+            exception
+              when others then
+                v_err_record.key_name  := 'ITEMID';
+                v_err_record.key_value := chkitem_record.itemid;
+                -- v_err_record.ora_msg
+                v_err_record.err_place := 'exception 01';
+                v_err_record.ora_err   := to_char(sqlcode);
+                v_err_record.ora_msg   := trim(sqlerrm);
+                pkg_dtlog.p_exception(v_log, v_err_record);
+
+            end;
+
+          end loop;
+
+        else
+          ---------------------------count----------
+          insert into dt_chk_sum
+            (region,
+             itemid,
+             old_tablename,
+             old_fieldname,
+             new_tablename,
+             new_fieldname,
+             old_values,
+             old_meaning,
+             old_count,
+             new_values,
+             new_meaning,
+             new_count,
+             diff_count)
+            select aa.region,
+                   aa.itemid,
+                   aa.table_list,
+                   aa.field_list,
+                   bb.table_list,
+                   bb.field_list,
+                   aa.field_value,
+                   aa.values_desc,
+                   aa.count_values,
+                   bb.field_value,
+                   bb.values_desc,
+                   bb.count_values,
+                   bb.count_values - aa.count_values
+            from   (select a.region,
+                           a.itemid,
+                           b.table_list,
+                           b.field_list,
+                           a.field_value,
+                           a.values_desc,
+                           a.count_values
+                    from   dt_chk_result      a,
+                           dt_chk_item_detail b
+                    where  a.itemid = b.itemid and
+                           a.si_usertype = b.si_usertype and
+                           a.itemid = chkitem_record.itemid and
+                           a.si_usertype = 'LEGACY' and
+                           a.field_value is null) aa,
+
+                   (select c.region,
+                           c.itemid,
+                           d.table_list,
+                           d.field_list,
+                           c.field_value,
+                           c.values_desc,
+                           c.count_values
+                    from   dt_chk_result      c,
+                           dt_chk_item_detail d
+                    where  c.itemid = d.itemid and
+                           c.si_usertype = d.si_usertype and
+                           c.itemid = chkitem_record.itemid and
+                           c.si_usertype = 'TARGET' and
+                           c.field_value is null) bb
+
+            where  aa.itemid = bb.itemid and
+                   (aa.region = bb.region or (aa.region is null and bb.region is null));
+
+          if sql%rowcount > 0 then
+
+            update dt_chk_result a
+            set    a.ismatch = 1
+            where  a.itemid = chkitem_record.itemid and
+                   a.si_usertype = 'LEGACY' and
+                   a.field_value is null;
+            update dt_chk_result a
+            set    a.ismatch = 1
+            where  a.itemid = chkitem_record.itemid and
+                   a.si_usertype = 'TARGET' and
+                   a.field_value is null;
+
+          end if;
+          commit;
+        end if;
+
+        insert into dt_chk_sum
+          (region,
+           itemid,
+           old_tablename,
+           old_fieldname,
+           new_tablename,
+           new_fieldname,
+           old_values,
+           old_meaning,
+           old_count,
+           diff_count)
+          select a.region,
+                 a.itemid,
+                 b.table_list,
+                 b.field_list,
+                 v_newtablename,
+                 v_newfieldname,
+                 a.field_value,
+                 a.values_desc,
+                 a.count_values,
+                 0 - a.count_values
+          from   dt_chk_result      a,
+                 dt_chk_item_detail b
+          where  a.itemid = b.itemid and
+                 a.si_usertype = b.si_usertype and
+                 a.itemid = chkitem_record.itemid and
+                 a.si_usertype = 'LEGACY' and
+                 (a.ismatch <> 1 or a.ismatch is null);
+
+        insert into dt_chk_sum
+          (region,
+           itemid,
+           old_tablename,
+           old_fieldname,
+           new_tablename,
+           new_fieldname,
+           new_values,
+           new_meaning,
+           new_count,
+           diff_count)
+          select c.region,
+                 c.itemid,
+                 v_oldtablename,
+                 v_oldfieldname,
+                 d.table_list,
+                 d.field_list,
+                 c.field_value,
+                 c.values_desc,
+                 c.count_values,
+                 c.count_values
+          from   dt_chk_result      c,
+                 dt_chk_item_detail d
+          where  c.itemid = d.itemid and
+                 c.si_usertype = d.si_usertype and
+                 c.itemid = chkitem_record.itemid and
+                 c.si_usertype = 'TARGET' and
+                 (c.ismatch <> 1 or (c.ismatch is null));
+        commit;
+      exception
+        when others then
+          v_err_record.key_name  := 'ITEMID';
+          v_err_record.key_value := chkitem_record.itemid;
+          v_err_record.err_place := ' exception ';
+          v_err_record.ora_err   := to_char(sqlcode);
+          v_err_record.ora_msg   := trim(sqlerrm);
+          pkg_dtlog.p_exception(v_log, v_err_record);
+      end;
+
+    end loop;
+
+    pkg_dtlog.p_complete(v_log);
+    commit;
+  end;
+
+  ----------------------------------------------------------------------------
+  --
+  --
+  --
+  ----------------------------------------------------------------------------
+  procedure p_chk_quality(i_regioncode in number) is
+
+    v_log            pkg_dtlog.log_record;
+    v_err_record     pkg_dtlog.err_record;
+    v_qrychkitem_sql varchar2(1024) := '';
+
+    v_sql      varchar2(2048) := '';
+    v_in_len   number := 0;
+    in_groupno number := 0;
+
+    chk_quality_row dt_chk_quality%rowtype;
+
+    type ref_cursor_type is ref cursor;
+    cur_list ref_cursor_type;
+
+  begin
+
+    in_groupno   := substrb(i_regioncode, 4);
+    v_log.region := substrb(i_regioncode, 1, 3);
+
+    v_log.oper_id := pkg_dtlog.f_get_operid;
+
+    v_log.object_name   := 'PKG_DTCHK.P_CHK_QUALITY';
+    v_log.register_name := 'PKG_DTCHK.P_CHK_QUALITY:' || in_groupno;
+
+    pkg_dtlog.p_register(v_log);
+
+    if in_groupno <> 0 then
+      v_qrychkitem_sql := ' SELECT SERIALNO,ITEM,ITEM_DESC,TABLE_NAME, ' || ' FIELD1,FIELD2,CHK_SQL,SI_STATUS,CREATE_DATE,GROUPNO ' ||
+                          ' FROM DT_CHK_QUALITY D WHERE D.SI_STATUS <>0 AND D.GROUPNO = ' || in_groupno;
+    else
+      v_qrychkitem_sql := ' SELECT SERIALNO,ITEM,ITEM_DESC,TABLE_NAME, ' ||
+                          ' FIELD1,FIELD2,CHK_SQL,si_STATUS,CREATE_DATE,GROUPNO FROM DT_CHK_QUALITY D WHERE D.SI_STATUS <>0 ';
+    end if;
+
+    open cur_list for v_qrychkitem_sql;
+    loop
+      begin
+        fetch cur_list
+          into chk_quality_row;
+        exit when cur_list%notfound;
+
+        if i_regioncode = 999 then
+          delete from dt_chk_quality_detail where item = chk_quality_row.item;
+        else
+          delete from dt_chk_quality_detail
+          where  item = chk_quality_row.item and
+                 (region = i_regioncode or region is null);
+        end if;
+        commit;
+
+        v_sql := chk_quality_row.chk_sql;
+
+        v_in_len := instr(v_sql, 'select', 1, 1);
+
+        if chk_quality_row.field2 is not null then
+          v_sql := substr(v_sql, 1, v_in_len + 5) || ' sysdate,' || chk_quality_row.serialno || ',''' ---
+                   || chk_quality_row.item || ''',''' || chk_quality_row.table_name || ''',''' ---
+                   || chk_quality_row.field1 || ''',''' || chk_quality_row.field2 || ''',' || substr(v_sql, v_in_len + 6);
+
+          v_sql := 'INSERT INTO DT_CHK_QUALITY_DETAIL NOLOGGING ' || ---
+                   ' ( CHK_DATE,SERIALNO,ITEM,TABLE_NAME,FIELD1,FIELD2,FIELD1_VALUE,FIELD2_VALUE )' || v_sql;
+
+        else
+          v_sql := substr(v_sql, 1, v_in_len + 5) || ' sysdate,' || chk_quality_row.serialno || ',''' ----
+                   || chk_quality_row.item || ''',''' ---
+                   || chk_quality_row.table_name || ''',''' ---
+                   || chk_quality_row.field1 || ''',' ---
+                   || substr(v_sql, v_in_len + 6);
+
+          v_sql := ' INSERT INTO DT_CHK_QUALITY_DETAIL NOLOGGING  ' || ---
+                   ' (CHK_DATE,SERIALNO,ITEM,TABLE_NAME, FIELD1,FIELD1_VALUE) ' || v_sql;
+        end if;
+
+        execute immediate v_sql;
+        v_log.success_num := v_log.success_num + sql%rowcount;
+
+        if sql%rowcount = 0 then
+          insert into dt_chk_quality_detail nologging
+            (serialno,
+             item,
+             table_name,
+             field1,
+             field1_value)
+          values
+            (chk_quality_row.serialno,
+             chk_quality_row.item,
+             chk_quality_row.table_name,
+             chk_quality_row.field1,
+             0);
+        end if;
+      exception
+        when others then
+          v_log.fail_num         := v_log.fail_num + 1;
+          v_err_record.key_name  := 'itemid';
+          v_err_record.key_value := chk_quality_row.item;
+          v_err_record.ora_msg   := substr(sqlerrm, 1, 254);
+          rollback;
+          pkg_dtlog.p_exception(v_log, v_err_record);
+      end;
+      commit;
+    end loop;
+    commit;
+    pkg_dtlog.p_complete(v_log);
+    commit;
+  end;
+  --------------------------------------------------------------
+  procedure p_dt_validrule
+  (
+    i_region in number,
+    i_index  in number
+  ) as
+
+    v_log      pkg_dtlog.log_record;
+    v_err      pkg_dtlog.err_record;
+    v_place    dt_errlog_detail.err_place%type;
+    v_loop_num number(15);
+
+    v_limit_rows number(15);
+    v_sql        varchar2(1024);
+    v_insertsql  varchar2(1024);
+    v_deletesql  varchar2(1024);
+
+    type ref_cur1 is ref cursor;
+    v_cursor1 ref_cur1;
+
+    type t_check_record is record(
+      keyfield1   varchar2(64),
+      keyfield2   varchar2(64),
+      keyfield3   varchar2(64),
+      validfield1 varchar2(64),
+      validfield2 varchar2(64),
+      validfield3 varchar2(64)
+      --check_result     varchar2(256)
+      );
+
+    type t_check_table is table of t_check_record;
+    rec_check t_check_table := t_check_table();
+
+    type t_keyfield1 is table of varchar2(64) index by pls_integer;
+    rec_keyfield1 t_keyfield1;
+
+    type t_keyfield2 is table of varchar2(64) index by pls_integer;
+    rec_keyfield2 t_keyfield2;
+
+    type t_keyfield3 is table of varchar2(64) index by pls_integer;
+    rec_keyfield3 t_keyfield3;
+
+    type t_validfield1 is table of varchar2(64) index by pls_integer;
+    rec_validfield1 t_validfield1;
+
+    type t_validfield2 is table of varchar2(64) index by pls_integer;
+    rec_validfield2 t_validfield2;
+
+    type t_validfield3 is table of varchar2(64) index by pls_integer;
+    rec_validfield3 t_validfield3;
+
+    type t_checkrule is table of varchar2(256) index by pls_integer;
+    rec_checkrule t_checkrule;
+
+    rec_validrule dt_validation_rule%rowtype;
+
+    v_record_index number;
+    v_dropindex    number;
+
+    v_sql1   varchar2(1024);
+    v_count1 number;
+
+    bulk_errors exception;
+    pragma exception_init(bulk_errors, -24381);
+  begin
+    v_log.region  := i_region;
+    v_log.oper_id := pkg_dtlog.f_get_operid;
+
+    v_log.object_name   := 'P_DT_VALIDRULE';
+    v_log.register_name := 'P_DT_VALIDRULE:' || to_char(i_index);
+    v_log.loop_num      := 0;
+    v_log.success_num   := 0;
+    v_log.fail_num      := 0;
+    v_log.batch_num     := 5000;
+    v_loop_num          := 0;
+    v_limit_rows        := 3000;
+    pkg_dtlog.p_register(v_log);
+
+    v_dropindex := 0;
+    select t.dop_index into v_dropindex from dt_dropindex t where status = 1;
+    /*
+        if i_index=0 then
+           delete from dt_valid_log t where t.drop_index=v_dropindex and t.ruleid >=9990;
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9990,'count of ppas_cust_mast','ppas_cust_mast',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\  count(1) from tf1_ppas.cust_mast t )*\ );
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9991,'count of sdp_subscriber','sdp_subscriber',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tf1_ppas.sdp_subscriber t )*\);
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9992,'count of sdp_dedicated_account','sdp_dedicated_account',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tf1_ppas.sdp_dedicated_account t)*\);
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9993,'count of Voucher','acce_accessory',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tf1_ppas.acce_accessory t )*\ );
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9994,'count of unique customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.owner='Telfort' )*\ );
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9995,'count of unique customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.owner='AH Mobile' )*\);
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9996,'count of active customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.cust_status='A' and t.owner='Telfort' )*\ );
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9997,'count of active customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.cust_status='A' and t.owner='AH Mobile' )*\ );
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9998,'count of deactive customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.cust_status='P' and t.owner='Telfort' )*\);
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,9999,'count of deactive customer','tmp_ppas_cust',sysdate,sysdate,
+           0,0 \*( select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.cust_status='P' and t.owner='AH Mobile' )*\);
+
+           v_sql1 := 'select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.owner=''Telfort'''
+                   || pkg_prep_pub.v_ppascust_cond;
+           execute immediate v_sql1 into v_count1 ;
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10000,'count of selection customer','tmp_ppas_cust',sysdate,sysdate,
+           0,v_count1);
+
+           v_sql1 := 'select \*+parallel(t,8)*\count(1) from tmp_ppas_cust t where t.owner=''AH Mobile'''
+                   || pkg_prep_pub.v_ppascust_cond;
+           execute immediate v_sql1 into v_count1 ;
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10001,'count of selection customer','tmp_ppas_cust',sysdate,sysdate,
+           0,v_count1);
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10002,'count of CCBS customer','TF2_YY0A.customer',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.customer aa  ));
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10003,'count of CCBS account','TF2_YY0A.account',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.account aa  ));
+
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10004,'count of CCBS subscriber','TF2_YY0A.subscriber',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.subscriber aa  ));
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10005,'count of CCBS subs_product','TF2_YY0A.subs_product',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.subs_product aa  ));
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10006,'count of CCBS subs_rateplan','TF2_YY0A.subs_rateplan',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.subs_rateplan aa  ));
+
+           insert into dt_valid_log(
+            drop_index,  ruleid,  rulename,  source_table,  start_time,  end_time,  total,  failed )
+           values ( v_dropindex,10007,'count of CCBS subs_privilege','TF2_YY0A.subs_privilege',sysdate,sysdate,
+           0,( select count(1) from tf2_yy0a.subs_privilege aa  ));
+
+
+           pkg_dtlog.p_complete(v_log);
+           return;
+        end if;
+    */
+
+    select t.* into rec_validrule from dt_validation_rule t where t.ruleid = i_index;
+
+    if rec_validrule.outbrust_table is null then
+      if rec_validrule.count_field is not null then
+        v_sql := 'select ' || rec_validrule.oracle_hint || ' ' || case
+                   when rec_validrule.validfield1 is null then
+                    ' count(' || rec_validrule.count_field || ')'
+                   else
+                    rec_validrule.validfield1
+                 end || ' from ' || rec_validrule.source_table || ' where ' || rec_validrule.condition || ' and ' || rec_validrule.rule_sql;
+      else
+        v_sql := 'select ' || rec_validrule.oracle_hint || ' ' || case
+                   when rec_validrule.validfield1 is null then
+                    ' count(1)'
+                   else
+                    rec_validrule.validfield1
+                 end || ' from ' || rec_validrule.source_table || ' where ' || rec_validrule.condition || ' and ' || rec_validrule.rule_sql;
+      end if;
+    else
+      v_sql := 'select ' || rec_validrule.oracle_hint || ' ' || nvl(rec_validrule.keyfield1, 'null keyfield1') || ',' ||
+               nvl(rec_validrule.keyfield2, 'null keyfield2') || ',' || nvl(rec_validrule.keyfield3, 'null keyfield3') || ',' ||
+               nvl(rec_validrule.validfield1, 'null validfield1') || ',' || nvl(rec_validrule.validfield2, 'null validfield2') || ',' ||
+               nvl(rec_validrule.validfield3, 'null validfield3') || ' from ' || rec_validrule.source_table || ' where ' || rec_validrule.condition ||
+               ' and ' || rec_validrule.rule_sql;
+
+      v_deletesql := 'delete from ' || rec_validrule.outbrust_table || ' where DROP_INDEX=' || v_dropindex || ' and RULEID=' || i_index;
+      execute immediate v_deletesql;
+    end if;
+
+    delete from dt_valid_log t
+    where  t.drop_index = v_dropindex and
+           t.ruleid = i_index;
+    commit;
+
+    insert into dt_valid_log
+      (drop_index,
+       ruleid,
+       rulename,
+       source_table,
+       start_time,
+       end_time,
+       total,
+       failed)
+    values
+      (v_dropindex,
+       i_index,
+       rec_validrule.rulename,
+       rec_validrule.source_table,
+       sysdate,
+       null,
+       0,
+       0);
+    commit;
+
+    if rec_validrule.outbrust_table is null then
+      execute immediate v_sql
+        into v_log.success_num;
+    else
+      v_insertsql := 'insert into ' || rec_validrule.outbrust_table ||
+                     '(drop_index, ruleid, rulename, source_table, keyfield1, keyfield2, keyfield3,CHECK_RESULT,validFIELD1,validFIELD2,validFIELD3) values(' ||
+                     v_dropindex || ',' || i_index || ',''' || null || ''',''' || null || ''',:1,:2,:3,:4,:5,:6,:7)';
+
+      open v_cursor1 for v_sql;
+      loop
+        v_record_index := 0;
+        rec_check.delete;
+        fetch v_cursor1 bulk collect
+          into rec_check limit v_limit_rows;
+        exit when rec_check.count = 0;
+        for the_idx in 1 .. rec_check.count loop
+          v_loop_num     := v_loop_num + 1;
+          v_log.loop_num := v_log.loop_num + 1;
+
+          v_record_index := v_record_index + 1;
+          rec_keyfield1(v_record_index) := rec_check(the_idx).keyfield1;
+          rec_keyfield2(v_record_index) := rec_check(the_idx).keyfield2;
+          rec_keyfield3(v_record_index) := rec_check(the_idx).keyfield3;
+
+          rec_validfield1(v_record_index) := rec_check(the_idx).validfield1;
+          rec_validfield2(v_record_index) := rec_check(the_idx).validfield2;
+          rec_validfield3(v_record_index) := rec_check(the_idx).validfield3;
+
+          rec_checkrule(v_record_index) := null;
+        end loop;
+
+        if (v_record_index > 0) then
+          v_place := 'insert into dt_validaterule';
+          begin
+            forall i_idx in 1 .. v_record_index save exceptions execute immediate v_insertsql using rec_keyfield1(i_idx), rec_keyfield2(i_idx),
+                                 rec_keyfield3(i_idx), rec_checkrule(i_idx), rec_validfield1(i_idx), rec_validfield2(i_idx), rec_validfield3(i_idx)
+              ;
+
+          exception
+            when bulk_errors then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  v_err.key_name  := 'rec_keyfield1';
+                  v_err.key_value := rec_keyfield1(sql%bulk_exceptions(the_err).error_index);
+                  v_err.err_place := 'insert into dt_validrule';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code), 1, 9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+          v_log.success_num := v_log.success_num + (sql%rowcount);
+        end if;
+
+        v_record_index := 0;
+        pkg_dtlog.p_commit(v_log);
+
+      end loop;
+    end if;
+
+    update dt_valid_log t
+    set    t.end_time = sysdate,
+           t.failed   = v_log.success_num
+    where  t.drop_index = v_dropindex and
+           t.ruleid = i_index;
+
+    pkg_dtlog.p_complete(v_log);
+
+  exception
+    when others then
+
+      v_log.fail_num  := v_log.fail_num + 1;
+      v_err.key_name  := 'Top Level exception';
+      v_err.key_value := 'Abnormal stop';
+      v_err.err_place := v_place;
+      v_err.ora_err   := to_char(sqlcode);
+      v_err.ora_msg   := trim(sqlerrm);
+      pkg_dtlog.p_exception(v_log, v_err);
+      pkg_dtlog.p_complete(v_log);
+
+  end p_dt_validrule;
+
+end;
+/
+
