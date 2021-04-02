@@ -1,0 +1,183 @@
+CREATE OR REPLACE PACKAGE BODY PKG_GRETA2_PUB is
+
+-------cust_id-----
+  function f_get_custid(in_custtype in varchar2,
+                        in_status   in number default 2,
+                        in_legacy   in number) return number is
+    v_cust_id number := 0;
+  begin
+    begin
+      if in_custtype = 'REG' and in_status = 2 then
+        v_cust_id := 3100000000000000 + in_legacy;---in_legacy:custid
+      elsif in_custtype = 'REG' and in_status = 1 then
+        v_cust_id := 3100000000000000 + in_legacy;---in_legacy:custid
+      elsif in_custtype = 'SME' and in_status = 2 then
+        v_cust_id := 3300000000000000 + in_legacy;---in_legacy:custid
+      elsif in_custtype = 'SME' and in_status = 1 then
+        v_cust_id := 3300000000000000 + in_legacy;---in_legacy:custid
+      elsIF in_custtype = 'USE'  then
+        v_cust_id := 3200000000000000 + in_legacy;---in_legacy:subs_id
+      end if;
+    exception
+      when others then
+        v_cust_id := 0;
+    end;
+    return v_cust_id;
+  end f_get_custid;
+-------acct_id-----
+  function f_get_acctid(in_seq   in varchar2 ,
+                        in_legacy   in number) return number is
+    v_acct_id number := 0;
+  begin
+    begin
+      v_acct_id := to_number('26000000'||lpad(in_seq,6,'0'))+in_legacy;
+    exception
+      when others then
+        v_acct_id := 0;
+    end;
+    return v_acct_id;
+  end f_get_acctid;
+
+-------acct_code-----
+  function f_get_acctcode(in_seq   in varchar2 ,
+                        in_legacy   in number) return number is
+    v_acct_code varchar2(32) := 0;
+  begin
+    begin
+      v_acct_code := '20'||lpad(in_seq,4,'0')||substr(to_char(100000000 + in_legacy),2);
+    exception
+      when others then
+        v_acct_code := 0;
+    end;
+    return v_acct_code;
+  end f_get_acctcode;
+
+-------sme_acct_id-----
+--to_number('26'||lpad(in_seq,4,'0')||substr(to_char(100000000 + in_legacy),2))
+  function f_get_sme_acctid(
+                        in_legacy   in number) return number is
+    v_acct_id number := 0;
+  begin
+    begin
+      v_acct_id := 26000000000000 + in_legacy;
+    exception
+      when others then
+        v_acct_id := 0;
+    end;
+    return v_acct_id;
+  end f_get_sme_acctid;
+
+-------individual_pre_acct_id-----
+  function f_get_pre_acctid(in_seq   in varchar2 ,
+                        in_legacy   in number) return number is
+    v_acct_id number := 0;
+  begin
+    begin
+      v_acct_id := to_number('26'||lpad(in_seq,4,'0')||substr(to_char(100000000 + in_legacy),2));
+    exception
+      when others then
+        v_acct_id := 0;
+    end;
+    return v_acct_id;
+  end f_get_pre_acctid;
+
+-------subs_id-----
+  function f_get_subsid(in_legacy_subsid   in number) return number is
+    v_subs_id number := 0;
+  begin
+    begin
+      v_subs_id := 500000000000+in_legacy_subsid;
+    exception
+      when others then
+        v_subs_id := 0;
+    end;
+    return v_subs_id;
+  end f_get_subsid;
+  --dict mapping
+function f_get_newdict(in_group in varchar2,
+                                         in_oldid in varchar2,
+                                         in_status  in number
+                                         )
+return varchar2
+is
+/*******************************************************************************
+in_group:TABLE_NAME.COLUMN_NAME,
+*******************************************************************************/
+v_newid     EXE_FIXED.dt_dict_mapping.n_dictid%type;
+begin
+    v_newid  := null;
+    if in_oldid is null then
+        v_newid := null ;
+    else
+        begin
+          select /*+ index(a,IDx_DICT) */n_dictid into v_newid from EXE_FIXED.dt_dict_mapping a
+            where a.group_id = in_group
+                and a.old_dictid = in_oldid
+                and a.status = in_status;
+        exception when others then
+            v_newid := '';
+        end;
+    end if ;
+        return v_newid;
+end f_get_newdict;
+
+  ------encrypt----
+function f_encrypt_aes128(v_str varchar2) return varchar2 as
+    v_key            varchar2(360);
+    v_iv             varchar2(360);
+    v_iv_raw         raw(360);
+    v_key_raw        raw(64);
+    v_str_raw        raw(2000);
+    v_str_raw_res    raw(2000);
+    v_return_str     varchar2(360);
+    v_type           pls_integer;
+  begin
+
+      ---------------------------------------------------------------------
+      v_iv  := '5A4461716B6A565162414B7970593853';
+      v_key := '6882BF579DF6C50433B79B506BCAC824';
+      ---------------------------------------------------------------------
+      if v_str is null then
+        return null;
+      else
+        v_key_raw     := hextoraw(v_key);
+        v_iv_raw      := hextoraw(v_iv);
+        v_str_raw     := utl_i18n.string_to_raw(v_str, 'AL32UTF8');
+        v_type        := dbms_crypto.encrypt_aes128 + dbms_crypto.CHAIN_CBC +
+                         dbms_crypto.PAD_PKCS5;
+        v_str_raw_res := dbms_crypto.encrypt(src => v_str_raw,
+                                             typ => v_type,
+                                             key => v_key_raw,
+                                             iv  => v_iv_raw);
+        v_return_str := utl_raw.cast_to_varchar2(utl_encode.base64_encode(v_str_raw_res));
+        return v_return_str;
+      end if;
+  end;
+
+  function f_get_bill_cycle_month(in_bill_cycle_day varchar2)
+    return varchar2 is
+    --v_year             varchar2(10);
+    v_month            varchar2(10);
+    v_bill_cycle_month varchar2(10);
+    v_EXTRACT_DATE     DATE;
+
+  begin
+    v_EXTRACT_DATE := PKG_GRETA2_DFT.DEF_EXTRACT_DATE;
+
+    if extract(month from v_EXTRACT_DATE) - 1 <= 0 then
+      --v_year  := extract(year from v_EXTRACT_DATE) - 1;
+      v_month := lpad(13 - extract(month from v_EXTRACT_DATE), 2, '0');
+    else
+      --v_year  := extract(year from v_EXTRACT_DATE);
+      v_month := lpad(extract(month from v_EXTRACT_DATE)-1, 2, '0');
+    end if;
+
+    if extract(day from v_EXTRACT_DATE) >= in_bill_cycle_day then
+      v_bill_cycle_month := lpad(extract(month from v_EXTRACT_DATE), 2, '0');
+    else
+      v_bill_cycle_month := v_month;
+    end if;
+    return v_bill_cycle_month;
+  end f_get_bill_cycle_month;
+
+end PKG_GRETA2_PUB;
