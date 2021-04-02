@@ -1,0 +1,883 @@
+
+        ------------1 START INIT DM_ACCT_INFO ARRAY--------------------
+        begin
+          v_tar_acct(v_idx).ACCT_ID                    := v_src_acct(i).t_acct_id;
+          v_tar_acct(v_idx).ACCT_CODE                  := v_src_acct(i).t_acct_code;
+          v_tar_acct(v_idx).ACCT_CLASS                 := '1';
+          v_tar_acct(v_idx).ACCT_TYPE                  := '1';
+          v_tar_acct(v_idx).ACCT_NAME                  := case when v_src_acct(i).is_sme = '0' then 
+                                                            v_src_acct(i).First_name||' '||v_src_acct(i).Second_name||' '||v_src_acct(i).First_last_name||' '||v_src_acct(i).Second_last_name
+                                                               else
+                                                                 v_src_acct(i).account_name
+                                                          end;
+          v_tar_acct(v_idx).BILL_CYCLE_TYPE_ID         := v_src_acct(i).BILL_CYCLE_TYPE_ID;
+          v_tar_acct(v_idx).BILL_LANG                  := NULL;
+          v_tar_acct(v_idx).BILL_TYPE                  := NULL;
+          v_tar_acct(v_idx).MAIL_TYPE                  := NULL;
+          v_tar_acct(v_idx).DISPALY_STATUS             := NULL;
+          v_tar_acct(v_idx).CONTROL_SCHEME             := NULL;
+          v_tar_acct(v_idx).CREATE_EMPL_ID             := PKG_GRETA2_DFT.DEF_CREATE_EMPL_ID;---v_src_acct(i).CREATE_EMPL_ID;
+          v_tar_acct(v_idx).CREATE_TIME                := PKG_GRETA2_DFT.DEF_MIN_DATE;---v_src_acct(i).CREATE_TIME;
+          v_tar_acct(v_idx).CREDIT_PAY_PERIOD          := NULL;
+          v_tar_acct(v_idx).CREDIT_RULE_VALUE          := NULL;
+          v_tar_acct(v_idx).CURRENCY_ID                := DEF_CURRENCY;
+          v_tar_acct(v_idx).CUST_ID                    := v_src_acct(i).t_cust_id;
+          v_tar_acct(v_idx).CUST_TYPE                  := '1';
+          v_tar_acct(v_idx).DEF_ACCT_FLAG              := 'Y';
+          v_tar_acct(v_idx).DUNNING_FLAG               := NULL;
+          v_tar_acct(v_idx).EFF_DATE                   := v_src_acct(i).EFF_DATE;
+          v_tar_acct(v_idx).EXP_DATE                   := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_acct(v_idx).INITIAL_LIMIT              := NULL;
+          v_tar_acct(v_idx).TEMP_CREDIT                := NULL;
+          v_tar_acct(v_idx).INVOICE_TEL                := NULL;
+          v_tar_acct(v_idx).INV_PRINT_TYPE             := NULL;
+          v_tar_acct(v_idx).NOTIFY_TYPE                := NULL;
+          v_tar_acct(v_idx).NOTIFY_VALUE               := NULL;
+          v_tar_acct(v_idx).OVERDRAFT                  := NULL;
+          v_tar_acct(v_idx).PAYMENT_TYPE               := v_src_acct(i).PAYMENT_TYPE;
+          v_tar_acct(v_idx).PAY_METHOD                 := v_src_acct(i).Payment_method;
+          v_tar_acct(v_idx).PRINT_CUST_NAME            := NULL;
+          v_tar_acct(v_idx).PRINT_SERVICE_NUMBER       := NULL;
+          v_tar_acct(v_idx).STATUS                     := v_src_acct(i).STATUS;
+          v_tar_acct(v_idx).STATUS_DATE                := v_src_acct(i).status_date;
+          v_tar_acct(v_idx).BL_CONTACT_PHONE           := v_src_acct(i).contact_number1;----contact_number2
+          v_tar_acct(v_idx).BL_CONTACT_NAME            := NULL;
+          v_tar_acct(v_idx).BL_CONTACT_EMAIL           := v_src_acct(i).Email;
+          v_tar_acct(v_idx).BL_THRESHOLD               := NULL;
+          v_tar_acct(v_idx).CONTACT_ID                 := NULL;------check
+          v_tar_acct(v_idx).CREATE_DEPT_ID             := PKG_GRETA2_DFT.DEF_CREATE_DEPT_ID;
+          v_tar_acct(v_idx).DUN_TYPE                   := NULL;
+          v_tar_acct(v_idx).DUN_MODE                   := NULL;
+          v_tar_acct(v_idx).DUN_NAME                   := NULL;
+          v_tar_acct(v_idx).DUN_PHONE                  := NULL;
+          v_tar_acct(v_idx).DUN_EMAIL                  := NULL;
+          v_tar_acct(v_idx).DATA_BATCH                 := NULL;
+          v_tar_acct(v_idx).BE_ID                      := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_acct(v_idx).PARTITION_ID               := MOD(v_tar_acct(v_idx).ACCT_ID,16);----check
+          v_tar_acct(v_idx).FLEX_TEXT                  := NULL;
+          v_tar_acct(v_idx).OTHER_EMAIL                := v_src_acct(i).Other_email;
+          v_tar_acct(v_idx).LATEFEE_PAY_FLAG           := v_src_acct(i).LateFee_Pay_Flag;
+          v_tar_acct(v_idx).FIRST_NAME                 := v_src_acct(i).First_name;
+          v_tar_acct(v_idx).SECOND_FIRST_NAME          := v_src_acct(i).Second_name;
+          v_tar_acct(v_idx).LAST_NAME                  := v_src_acct(i).First_last_name;
+          v_tar_acct(v_idx).SECOND_LAST_NAME           := v_src_acct(i).SECOND_LAST_NAME;
+          v_tar_acct(v_idx).TAX_CATEGORY               := v_src_acct(i).TAX_CATEGORY;
+          v_tar_acct(v_idx).TAX_SUBCATEGORY            := v_src_acct(i).Sub_tax_category;
+          v_tar_acct(v_idx).TAX_EXCLUDED_START_DATE    := v_src_acct(i).tax_start_date;
+          v_tar_acct(v_idx).TAX_EXCLUDED_END_DATE      := v_src_acct(i).tax_end_date;
+          v_tar_acct(v_idx).CONTACT_NUMBER1            := v_src_acct(i).CONTACT_NUMBER1;
+          v_tar_acct(v_idx).CONTACT_NUMBER2            := v_src_acct(i).CONTACT_NUMBER2;
+          v_tar_acct(v_idx).EXTRACT_DATE               := v_src_acct(i).EXTRACT_DATE;
+          v_tar_acct(v_idx).SALES_CHANNEL_ID           := v_src_acct(i).SALES_CHANNEL_ID;
+          v_tar_acct(v_idx).SRC_CUSTID                 := v_src_acct(i).s_cust_id;
+          v_tar_acct(v_idx).SRC_ACCTID                 := v_src_acct(i).s_acct_id;
+          v_tar_acct(v_idx).RED_LIST_TYPE              := PKG_GRETA2_PUB.f_get_newdict('MID_REDLIST.DUNNING_NOTI',v_src_acct(i).Dunning_Noti,'1');
+          v_tar_acct(v_idx).WRITE_OFF_STATUS           := v_src_acct(i).WRITE_OFF_STATUS;
+          v_tar_acct(v_idx).WRITEOFF_DATE              := v_src_acct(i).WRITEOFF_DATE;
+          v_tar_acct(v_idx).due_date                   := v_src_acct(i).due_date;
+          v_tar_acct(v_idx).reason_dc                  := v_src_acct(i).reason_dc;
+          v_tar_acct(v_idx).contract_id                := v_src_acct(i).contract_id;
+          v_tar_acct(v_idx).is_sme                     := v_src_acct(i).is_sme;
+          v_tar_acct(v_idx).segment_code               := NULL;
+          v_tar_acct(v_idx).contract_code              := NULL;
+          v_tar_acct(v_idx).tax_start_date             := v_src_acct(i).bes_tax_start_date;
+          v_tar_acct(v_idx).tax_end_date               := v_src_acct(i).bes_tax_end_date;
+          v_tar_acct(v_idx).DND_FLAG                   := v_src_acct(i).DND_FLAG;
+          v_tar_acct(v_idx).payment_arrangement_flag   := v_src_acct(i).payment_arrangement_flag;
+          v_tar_acct(v_idx).new_bill_cycle             := v_src_acct(i).new_bill_cycle;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_ACCT_INFO ARRAY wrong';
+              v_err.key_value := v_src_acct(i).acct_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_ACCT_INFO ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+        -----------------END INIT DM_ACCT_INFO ARRAY---------------------------
+
+
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_ACCT_INFO---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_ACCT_INFO values v_tar_acct(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_ACCT_INFO';
+                  v_err.key_value := v_tar_acct(sql%bulk_exceptions(the_err).error_index).ACCT_ID;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_ACCT_INFO';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_ACCT_INFO---------------------------
+
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_acct.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_ACCT_INFO;
+
+  procedure P_DM_BILL_MEDIUM(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.*,
+           case when a.medium_type = 'Paper Bill' and a.bill_medium = 'Detail' then
+                 '12000042'
+            when a.medium_type = 'Paper Bill' and a.bill_medium = 'Summary' then
+                 '12000041'
+            when a.medium_type = 'Email Bill' and a.bill_medium = 'Detail' then
+                 '12000046'
+            when a.medium_type = 'Email Bill' and a.bill_medium = 'Summary' then
+                 '12000045'
+            else
+                 '12000043'
+           end as bill_medium_id,
+           case when a.medium_type = 'Paper Bill' and a.bill_medium = 'Detail' then
+                 'Paper Bill Detail'
+            when a.medium_type = 'Paper Bill' and a.bill_medium = 'Summary' then
+                 'Paper Bill Summary'
+            when a.medium_type = 'Email Bill' and a.bill_medium = 'Detail' then
+                 'Email  Bill Detail'
+            when a.medium_type = 'Email Bill' and a.bill_medium = 'Summary' then
+                 'Email Bill Summary'
+            else
+                 'SMS Bill Summary'
+           end as medium_content,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.s_acct_id,
+           b.s_cust_id,
+           b.acct_payment_type,
+           b.bill_cycle_type_id,
+           b.new_bill_cycle,
+           b.is_sme
+      from s3_data.MID_ACCT_BM a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,ACCT_PAYMENT_TYPE,bill_cycle_type_id,new_bill_cycle,is_sme from SRC_MED.pre_cas_acct_id
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,ACCT_PAYMENT_TYPE,bill_cycle_type_id,new_bill_cycle,is_sme from SRC_MED.Pre_Cas_Sme where s_acct_id is not null) b
+        on a.acct_id = b.s_acct_id;
+
+    type tab_src_acct_bm is table of src_cur%rowtype index by binary_integer;
+    v_src_acct_bm tab_src_acct_bm;
+    --tariff table
+    --target table
+    type tab_tar_acct_bm is table of SRC_MED.DM_BILL_MEDIUM%rowtype index by binary_integer;
+    v_tar_acct_bm tab_tar_acct_bm;
+
+
+    --<<BEGIN: Customize variable definition area>>
+    --v_s_p_offering_id  varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_BILL_MEDIUM',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_ACCT_BM', i_index, v_partname);
+
+    v_src_sql := '
+    select a.*,
+           case when a.medium_type = ''Paper Bill'' and a.bill_medium = ''Detail'' then
+                 ''12000042''
+            when a.medium_type = ''Paper Bill'' and a.bill_medium = ''Summary'' then
+                 ''12000041''
+            when a.medium_type = ''Email Bill'' and a.bill_medium = ''Detail'' then
+                 ''12000046''
+            when a.medium_type = ''Email Bill'' and a.bill_medium = ''Summary'' then
+                 ''12000045''
+            else
+                 ''12000043''
+           end as bill_medium_id,
+           case when a.medium_type = ''Paper Bill'' and a.bill_medium = ''Detail'' then
+                 ''Paper Bill Detail''
+            when a.medium_type = ''Paper Bill'' and a.bill_medium = ''Summary'' then
+                 ''Paper Bill Summary''
+            when a.medium_type = ''Email Bill'' and a.bill_medium = ''Detail'' then
+                 ''Email  Bill Detail''
+            when a.medium_type = ''Email Bill'' and a.bill_medium = ''Summary'' then
+                 ''Email Bill Summary''
+            else
+                 ''SMS Bill Summary''
+           end as medium_content,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.s_acct_id,
+           b.s_cust_id,
+           b.ACCT_PAYMENT_TYPE,
+           b.bill_cycle_type_id,
+           b.new_bill_cycle,
+           b.is_sme
+      from s3_data.MID_ACCT_BM partition('||v_partname||') a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,ACCT_PAYMENT_TYPE,bill_cycle_type_id,new_bill_cycle,is_sme from SRC_MED.pre_cas_acct_id partition('||v_partname||')
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,ACCT_PAYMENT_TYPE,bill_cycle_type_id,new_bill_cycle,is_sme from SRC_MED.Pre_Cas_Sme where s_acct_id is not null) b
+        on a.acct_id = b.s_acct_id';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_acct_bm.delete;
+      v_tar_acct_bm.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_acct_bm limit v_batchnum;
+      exit when v_src_acct_bm.count = 0;
+
+      v_idx := 1;
+      if v_src_acct_bm.count > 0 then
+        for i in v_src_acct_bm.first .. v_src_acct_bm.last loop
+
+        ------------1 START INIT DM_BILL_MEDIUM ARRAY--------------------
+        begin
+          v_tar_acct_bm(v_idx).BILL_MEDIUM_INST_ID   := seq_medium_inst_id.nextval;-----check
+          v_tar_acct_bm(v_idx).ACCT_ID               := v_src_acct_bm(i).t_acct_id;
+          v_tar_acct_bm(v_idx).BILL_MEDIUM_ID        := v_src_acct_bm(i).bill_medium_id;--set default for debugging--PKG_GRETA2_PUB.f_get_newdict('MID_ACCT_BM.MEDIUM_TYPE',v_src_acct_bm(i).MEDIUM_TYPE,'1');----v_src_acct_bm(i).BILL_MEDIUM,MEDIUM_TYPE;
+          v_tar_acct_bm(v_idx).MEDIUM_CONTENT        := v_src_acct_bm(i).medium_content;
+          v_tar_acct_bm(v_idx).EFF_DATE              := v_src_acct_bm(i).EFF_DATE;
+          v_tar_acct_bm(v_idx).EXP_DATE              := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_acct_bm(v_idx).REMARK                := NULL;
+          v_tar_acct_bm(v_idx).CREATE_TIME           := v_src_acct_bm(i).CREATE_TIME;
+          v_tar_acct_bm(v_idx).MODIFY_TIME           := NULL;
+          v_tar_acct_bm(v_idx).CREATE_PROLE_TYPE     := PKG_GRETA2_DFT.DEF_CREATE_PROLE_TYPE;
+          v_tar_acct_bm(v_idx).CREATE_PROLE_ID       := PKG_GRETA2_DFT.DEF_CREATE_PROLE_ID;
+          v_tar_acct_bm(v_idx).CREATE_DEPT_ID        := PKG_GRETA2_DFT.DEF_CREATE_DEPT_ID;
+          v_tar_acct_bm(v_idx).MODIFY_PROLE_TYPE     := PKG_GRETA2_DFT.DEF_MODIFY_PROLE_TYPE;
+          v_tar_acct_bm(v_idx).MODIFY_PROLE_ID       := PKG_GRETA2_DFT.DEF_MODIFY_PROLE_ID;
+          v_tar_acct_bm(v_idx).MODIFY_DEPT_ID        := PKG_GRETA2_DFT.DEF_MODIFY_DEPT_ID;
+          v_tar_acct_bm(v_idx).BE_ID                 := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_acct_bm(v_idx).MEDIUM_TYPE           := v_src_acct_bm(i).MEDIUM_TYPE;
+          v_tar_acct_bm(v_idx).BILL_LANG             := v_src_acct_bm(i).BILL_LANG;
+          v_tar_acct_bm(v_idx).STATUS                := v_src_acct_bm(i).STATUS;
+          v_tar_acct_bm(v_idx).EXTRACT_DATE          := v_src_acct_bm(i).EXTRACT_DATE;
+          v_tar_acct_bm(v_idx).PARTITION_ID          := MOD(v_tar_acct_bm(v_idx).ACCT_ID,32);----check
+          v_tar_acct_bm(v_idx).SRC_ACCTID            := v_src_acct_bm(i).s_acct_id;
+          v_tar_acct_bm(v_idx).ACCT_PAYMENT_TYPE     := v_src_acct_bm(i).ACCT_PAYMENT_TYPE;
+          v_tar_acct_bm(v_idx).bill_cycle_type_id    := v_src_acct_bm(i).bill_cycle_type_id;
+          v_tar_acct_bm(v_idx).SRC_CUSTID            := v_src_acct_bm(i).s_cust_id;
+          v_tar_acct_bm(v_idx).is_sme                := v_src_acct_bm(i).is_sme;
+          v_tar_acct_bm(v_idx).new_bill_cycle_type_id     := v_src_acct_bm(i).new_bill_cycle;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_BILL_MEDIUM ARRAY wrong';
+              v_err.key_value := v_src_acct_bm(i).acct_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_BILL_MEDIUM ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+        -----------------END INIT DM_BILL_MEDIUM ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_BILL_MEDIUM---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_BILL_MEDIUM values v_tar_acct_bm(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_BILL_MEDIUM';
+                  v_err.key_value := v_tar_acct_bm(sql%bulk_exceptions(the_err).error_index).ACCT_ID;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_BILL_MEDIUM';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_BILL_MEDIUM---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_acct_bm.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_BILL_MEDIUM;
+
+  procedure P_DM_PAY_CHANNEL(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.acct_id
+  ,a.payment_method
+  ,a.autopay_type
+  ,a.bank_id
+  ,a.bank_name
+  ,a.credit_card_type
+  ,a.card_holder
+  ,a.card_nr
+  ,substr(a.card_exp_date,-2)||'/'||substr(a.card_exp_date,3,2) card_exp_date
+  ,a.bank_acct_code
+  ,a.bank_acct_name
+  ,a.create_time
+  ,a.eff_date
+  ,a.exp_date
+  ,a.id_type
+  ,a.id_no
+  ,a.email
+  ,a.autopay_status
+  ,a.card_exp_date src_card_exp_date,
+           b.t_acct_id,
+           b.s_cust_id,
+           b.acct_payment_type,
+           b.t_cust_id,
+           b.s_acct_id,
+           b.is_sme
+      from s3_data.MID_PAY_CHANNEL a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,acct_payment_type,is_sme from SRC_MED.pre_cas_acct_id
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,acct_payment_type,is_sme from SRC_MED.Pre_Cas_Sme where
+      s_acct_id is not null) b
+        on a.acct_id = b.s_acct_id and upper(a.payment_method)!='CASH';
+
+    type tab_src_pay_channel is table of src_cur%rowtype index by binary_integer;
+    v_src_pay_channel tab_src_pay_channel;
+    --tariff table
+    --target table
+    type tab_tar_pay_channel is table of SRC_MED.DM_PAY_CHANNEL%rowtype index by binary_integer;
+    v_tar_pay_channel tab_tar_pay_channel;
+
+
+    --<<BEGIN: Customize variable definition area>>
+    v_bank_id  NUMBER(20);
+    v_bank_acct_type varchar2(20);
+    v_credit_card_type varchar2(20);
+    v_bank_acct_code varchar2(32);
+    v_bank_acct_exp_date varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_PAY_CHANNEL',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_PAY_CHANNEL', i_index, v_partname);
+
+    v_src_sql := '
+    select a.acct_id
+  ,a.payment_method
+  ,a.autopay_type
+  ,a.bank_id
+  ,a.bank_name
+  ,a.credit_card_type
+  ,a.card_holder
+  ,a.card_nr
+  ,substr(a.card_exp_date,-2)||''/''||substr(a.card_exp_date,3,2) card_exp_date
+  ,a.bank_acct_code
+  ,a.bank_acct_name
+  ,a.create_time
+  ,a.eff_date
+  ,a.exp_date
+  ,a.id_type
+  ,a.id_no
+  ,a.email
+  ,a.autopay_status
+  ,a.card_exp_date src_card_exp_date,
+           b.t_acct_id,
+           b.s_cust_id,
+           b.acct_payment_type,
+           b.t_cust_id,
+           b.s_acct_id,
+           b.is_sme
+      from s3_data.MID_PAY_CHANNEL partition('||v_partname||') a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,acct_payment_type,is_sme from SRC_MED.pre_cas_acct_id partition('||v_partname||')
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,acct_payment_type,is_sme from SRC_MED.Pre_Cas_Sme where
+      s_acct_id is not null) b
+        on a.acct_id = b.s_acct_id and upper(a.payment_method)!=''CASH''';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_pay_channel.delete;
+      v_tar_pay_channel.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_pay_channel limit v_batchnum;
+      exit when v_src_pay_channel.count = 0;
+
+      v_idx := 1;
+      if v_src_pay_channel.count > 0 then
+        for i in v_src_pay_channel.first .. v_src_pay_channel.last loop
+
+        ------------1 START INIT DM_PAY_CHANNEL ARRAY--------------------
+
+          if v_src_pay_channel(i).BANK_ID is null then
+             v_bank_id := '1234';
+          else
+             v_bank_id := v_src_pay_channel(i).BANK_ID;
+          end if;
+          if v_src_pay_channel(i).Autopay_Type = 'CREDIT CARD' then
+             v_bank_acct_type := 'C';
+          elsif v_src_pay_channel(i).Autopay_Type = 'SAVING ACCOUNT' then
+             v_bank_acct_type := 'S';
+          else
+             v_bank_acct_type := 'D';
+          end if;
+          if v_bank_acct_type = 'C' then
+             v_credit_card_type   := case when v_src_pay_channel(i).CREDIT_CARD_TYPE is null then
+                                               '2002'
+                                          else
+                                                PKG_GRETA2_PUB.f_get_newdict('MID_PAY_CHANNEL.CREDIT_CARD_TYPE',v_src_pay_channel(i).CREDIT_CARD_TYPE,'1')
+                                     end;
+             v_bank_acct_code     := v_src_pay_channel(i).CARD_NR;
+             v_bank_acct_exp_date := case when v_src_pay_channel(i).CARD_EXP_DATE is null then
+                                               '12/99'
+                                          else
+                                               v_src_pay_channel(i).CARD_EXP_DATE
+                                     end;
+          else
+             v_credit_card_type   := NULL;
+             v_bank_acct_code     := v_src_pay_channel(i).BANK_ACCT_CODE;
+             v_bank_acct_exp_date := v_src_pay_channel(i).CARD_EXP_DATE;
+          end if;
+
+        begin
+          v_tar_pay_channel(v_idx).ACCT_ID               := v_src_pay_channel(i).t_acct_id;
+          v_tar_pay_channel(v_idx).PAYMENT_SEQ           := seq_payment_channel_id.nextval;
+          v_tar_pay_channel(v_idx).BANK_ID               := v_bank_id;
+          v_tar_pay_channel(v_idx).BANK_ACCT_TYPE        := v_bank_acct_type;
+          v_tar_pay_channel(v_idx).CREDIT_CARD_TYPE      := v_credit_card_type;
+          v_tar_pay_channel(v_idx).BANK_ACCT_CODE        := v_bank_acct_code;
+          v_tar_pay_channel(v_idx).BANK_ACCT_EXP_DATE    := v_bank_acct_exp_date;
+          v_tar_pay_channel(v_idx).BANK_ACCT_NAME        := v_src_pay_channel(i).CARD_HOLDER;---BANK_ACCT_NAME;
+          v_tar_pay_channel(v_idx).CREATE_TIME           := v_src_pay_channel(i).CREATE_TIME;
+          v_tar_pay_channel(v_idx).EFF_DATE              := v_src_pay_channel(i).EFF_DATE;
+          v_tar_pay_channel(v_idx).EXP_DATE              := v_src_pay_channel(i).EXP_DATE;
+          v_tar_pay_channel(v_idx).HIS_DATE              := NULL;
+          v_tar_pay_channel(v_idx).PAYMENT_PERIOD_TYPE   := NULL;
+          v_tar_pay_channel(v_idx).PAYMENT_DATE          := NULL;
+          v_tar_pay_channel(v_idx).PAYMENT_AMOUNT        := NULL;
+          v_tar_pay_channel(v_idx).TRIGER_AMOUNT         := NULL;
+          v_tar_pay_channel(v_idx).BE_ID                 := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_pay_channel(v_idx).PARTITION_ID          := MOD(v_tar_pay_channel(v_idx).ACCT_ID,16);----check
+          v_tar_pay_channel(v_idx).FLEX_TEXT             := NULL;
+          v_tar_pay_channel(v_idx).CUST_ID               := v_src_pay_channel(i).t_cust_id;
+          v_tar_pay_channel(v_idx).PRIORITY              := '80';
+          v_tar_pay_channel(v_idx).CARD_HOLDER           := v_src_pay_channel(i).card_holder;
+          v_tar_pay_channel(v_idx).ID_TYPE               := v_src_pay_channel(i).ID_Type;
+          v_tar_pay_channel(v_idx).ID_NO                 := v_src_pay_channel(i).ID_No;
+          v_tar_pay_channel(v_idx).EMAIL                 := v_src_pay_channel(i).EMAIL;
+          v_tar_pay_channel(v_idx).TOKEN                 := NULL;
+          v_tar_pay_channel(v_idx).AUTOPAY_STATUS        := PKG_GRETA2_PUB.f_get_newdict('MID_PAY_CHANNEL.AUTOPAY_STATUS',v_src_pay_channel(i).Autopay_Status,'1');
+          ---v_tar_pay_channel(v_idx).EXTRACT_DATE          := v_src_pay_channel(i).EXTRACT_DATE;
+          v_tar_pay_channel(v_idx).SRC_ACCT_ID           := v_src_pay_channel(i).s_acct_id;
+          v_tar_pay_channel(v_idx).src_cust_id           := v_src_pay_channel(i).s_cust_id;
+          v_tar_pay_channel(v_idx).acct_payment_type     := v_src_pay_channel(i).acct_payment_type;
+          v_tar_pay_channel(v_idx).src_card_exp_date     := v_src_pay_channel(i).src_card_exp_date;
+          v_tar_pay_channel(v_idx).is_sme                := v_src_pay_channel(i).is_sme;
+          v_tar_pay_channel(v_idx).payment_method        := v_src_pay_channel(i).payment_method;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_PAY_CHANNEL ARRAY wrong';
+              v_err.key_value := v_src_pay_channel(i).acct_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_PAY_CHANNEL ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+        -----------------END INIT DM_PAY_CHANNEL ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_PAY_CHANNEL---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_PAY_CHANNEL values v_tar_pay_channel(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_PAY_CHANNEL';
+                  v_err.key_value := v_tar_pay_channel(sql%bulk_exceptions(the_err).error_index).acct_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_PAY_CHANNEL';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_PAY_CHANNEL---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_pay_channel.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_PAY_CHANNEL;
+
+  procedure P_DM_SUBS_IND(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.*,
+           b.t_subs_id,
+           b.s_subs_id,
+           b.t_acct_id,
+           b.s_acct_id,
+           b.t_cust_id,
+           b.s_cust_id,
+           b.s_using_cust_id,
+           b.t_using_cust_id,
+           b.p_offer_inst_id,
+           b.p_offer_id,
+           b.p_prod_inst_id,
+           b.p_prod_id,
+           b.p_prod_code,
+           b.brand_id,
+           b.status new_subs_status,
+           b.subs_name new_subs_name,
+           b.t_acct_code,
+           b.bes_sub_status_detail,
+           b.fs_status_detail_type,
+           b.predeactive_reason,
+           e.dunning_noti,
+           a.contract_number new_contract_number,
+           a.fun_ucc_annex_no newfun_ucc_annex_no,
+           nvl(m.empl_id_target,101) new_oper_id,
+           nvl(m.dept_id,101) new_dept_id,
+           n.target_market new_target_market,
+           b.is_sme
+      from s3_data.MID_SUBS a
+      join SRC_MED.Pre_Cas_All b
+        on a.subs_id = b.s_subs_id
+      left join s3_data.MID_REDLIST e
+        on a.service_number = e.service_number and e.redlist_type='S'
+      left join trans_data.mt_emp_mapping m
+      on a.create_empl_id = m.empl_id_legacy
+      left join exe_fixed.PM_TARGET_MARKET_CTZ n
+      on a.social_level = n.social_level
+      and a.coddane = n.dane_code;
+
+    type tab_src_subs is table of src_cur%rowtype index by binary_integer;
+    v_src_subs tab_src_subs;
+    --tariff table
+    --target table
+    type tab_tar_subs is table of SRC_MED.DM_SUBS_IND%rowtype index by binary_integer;
+    v_tar_subs tab_tar_subs;
+
+
+    --<<BEGIN: Customize variable definition area>>
+    --v_status  varchar2(2);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_SUBS_IND',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_SUBS', i_index, v_partname);
+
+    v_src_sql := '
+    select a.*,
+           b.t_subs_id,
+           b.s_subs_id,
+           b.t_acct_id,
+           b.s_acct_id,
+           b.t_cust_id,
+           b.s_cust_id,
+           b.s_using_cust_id,
+           b.t_using_cust_id,
+           b.p_offer_inst_id,
+           b.p_offer_id,
+           b.p_prod_inst_id,
+           b.p_prod_id,
+           b.p_prod_code,
+           b.brand_id,
+           b.status new_subs_status,
+           b.subs_name new_subs_name,
+           b.t_acct_code,
+           b.bes_sub_status_detail,
+           b.fs_status_detail_type,
+           b.predeactive_reason,
+           e.Dunning_Noti,
+           a.contract_number new_contract_number,
+           a.fun_ucc_annex_no newfun_ucc_annex_no,
+           nvl(m.empl_id_target,101) new_oper_id,
+           nvl(m.dept_id,101) new_dept_id,
+           n.target_market new_target_market,
+           b.is_sme
+      from s3_data.MID_SUBS partition('||v_partname||') a
+      join SRC_MED.Pre_Cas_All partition('||v_partname||') b
+        on a.subs_id = b.s_subs_id
+      left join s3_data.MID_REDLIST e
+        on a.service_number = e.service_number and e.redlist_type=''S''
+      left join trans_data.mt_emp_mapping m
+      on a.create_empl_id = m.empl_id_legacy
+      left join exe_fixed.PM_TARGET_MARKET_CTZ n
+      on a.social_level = n.social_level
+      and a.coddane = n.dane_code';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_subs.delete;
+      v_tar_subs.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_subs limit v_batchnum;
+      exit when v_src_subs.count = 0;
+
+      v_idx := 1;
+      if v_src_subs.count > 0 then
+        for i in v_src_subs.first .. v_src_subs.last loop
+
+        ------------1 START INIT DM_SUBS_IND ARRAY--------------------
+        begin
+          v_tar_subs(v_idx).SUBS_ID                 := v_src_subs(i).t_subs_id;
+          v_tar_subs(v_idx).ACCT_ID                 := v_src_subs(i).t_acct_id;
+          v_tar_subs(v_idx).ACCT_CODE               := v_src_subs(i).t_acct_code;
+          v_tar_subs(v_idx).CUST_ID                 := v_src_subs(i).t_cust_id;
+          v_tar_subs(v_idx).USING_CUST_ID           := v_src_subs(i).t_using_cust_id;
+          v_tar_subs(v_idx).SUBS_NAME               := v_src_subs(i).new_subs_name;
+          v_tar_subs(v_idx).SERVICE_NUMBER          := v_src_subs(i).SERVICE_NUMBER;
+          v_tar_subs(v_idx).ICCID                   := NULL;--v_src_subs(i).ICCID;
+          v_tar_subs(v_idx).IMSI                    := NULL;--v_src_subs(i).IMSI;
+          v_tar_subs(v_idx).IMEI                    := NULL;--v_src_subs(i).IMEI1;
+          v_tar_subs(v_idx).SERVICE_ACCOUNT_TYPE    := PKG_GRETA2_PUB.f_get_newdict('MID_SUBS.NETWORK_TYPE',v_src_subs(i).NETWORK_TYPE,'1');--v_src_subs(i).network_type;
+          v_tar_subs(v_idx).PAYMENT_TYPE            := PKG_GRETA2_PUB.f_get_newdict('MID_SUBS.PAYMENT_TYPE',v_src_subs(i).PAYMENT_TYPE,'1');
+          v_tar_subs(v_idx).OFFERING_ID             := v_src_subs(i).p_offer_id;
+          v_tar_subs(v_idx).OFFERING_INST_ID        := v_src_subs(i).p_offer_inst_id;
+          v_tar_subs(v_idx).PROD_ID                 := v_src_subs(i).p_prod_id;
+          v_tar_subs(v_idx).PROD_INST_ID            := v_src_subs(i).p_prod_inst_id;
+          v_tar_subs(v_idx).CREATE_TIME             := v_src_subs(i).CREATE_TIME;
+          v_tar_subs(v_idx).CREATE_EMPL_ID          := v_src_subs(i).new_oper_id;
+          v_tar_subs(v_idx).EFF_DATE                := v_src_subs(i).EFF_DATE;
+          v_tar_subs(v_idx).EXP_DATE                := PKG_GRETA2_DFT.DEF_MAX_DATE;
+
+          v_tar_subs(v_idx).LAST_ACTIVE_TIME        := v_src_subs(i).LAST_ACTIVE_TIME;
+          v_tar_subs(v_idx).SUBS_LEVEL              := '1';--v_src_subs(i).segment_code;------check
+          v_tar_subs(v_idx).SUBS_LANGUAGE           := v_src_subs(i).SUBS_LANGUAGE;
+          v_tar_subs(v_idx).STATUS                  := v_src_subs(i).new_subs_status;
+          v_tar_subs(v_idx).STATUS_DETAIL           := v_src_subs(i).bes_sub_status_detail;
+          v_tar_subs(v_idx).DUNNING_FLAG            := PKG_GRETA2_PUB.f_get_newdict('MID_REDLIST.DUNNING_NOTI',v_src_subs(i).Dunning_Noti,'1');
+          v_tar_subs(v_idx).SUB_PASSWORD            := v_src_subs(i).SUB_PASSWORD;
+          v_tar_subs(v_idx).REG_STATUS              := NULL;
+          v_tar_subs(v_idx).REG_DATE                := NULL;
+          v_tar_subs(v_idx).REC_EFF_DATE            := NULL;
+          v_tar_subs(v_idx).REG_OPER                := NULL;
+          v_tar_subs(v_idx).SALES_CHANNEL_TYPE      := v_src_subs(i).SALES_CHANNEL_TYPE;
+          v_tar_subs(v_idx).SALES_CHANNEL_ID        := v_src_subs(i).SALES_CHANNEL_ID;
+          v_tar_subs(v_idx).SALES_ID                := v_src_subs(i).SALES_ID;
+          v_tar_subs(v_idx).DATA_BATCH              := NULL;
+          v_tar_subs(v_idx).BE_ID                   := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_subs(v_idx).PARTITION_ID            := MOD(v_tar_subs(v_idx).SUBS_ID,16);-----check
+          v_tar_subs(v_idx).FLEX_TEXT               := NULL;
+          v_tar_subs(v_idx).PENDING_DEVICE_CHECK    := NULL;--v_src_subs(i).Pending_Device_Check;
+          v_tar_subs(v_idx).ACTIVE_DATE             := v_src_subs(i).Active_date;
+          v_tar_subs(v_idx).FREQUENCY               := null;--v_src_subs(i).frequency; set null for debugging
+          v_tar_subs(v_idx).CDR_IN_INVOICE          := v_src_subs(i).CDR_in_invoice;
+          v_tar_subs(v_idx).HOME_PICK_UP            := NULL;--v_src_subs(i).HOME_pick_up;
+          v_tar_subs(v_idx).REASON_CEROPAPEL        := v_src_subs(i).Reason_CeroPapel;
+          v_tar_subs(v_idx).DSP                     := NULL;--v_src_subs(i).DSP;
+          v_tar_subs(v_idx).DSP_NAME                := NULL;--v_src_subs(i).DSP_NAME;
+          v_tar_subs(v_idx).OWNER_SP                := NULL;--v_src_subs(i).OWNER_SP;
+          v_tar_subs(v_idx).OWNER_SP_NAME           := NULL;--v_src_subs(i).OWNER_SP_NAME;
+          v_tar_subs(v_idx).SEGMENT                 := v_src_subs(i).segment_code;
+          v_tar_subs(v_idx).CREATE_DEPT_ID          := v_src_subs(i).new_dept_id;
+          v_tar_subs(v_idx).STATUS_DATE             := v_src_subs(i).status_date;
+          v_tar_subs(v_idx).CONSUMPTION_LIMIT       := NULL;--v_src_subs(i).consumption_limit;
+          v_tar_subs(v_idx).DEVICE_TYPE             := NULL;--v_src_subs(i).device_type;
+          v_tar_subs(v_idx).BRAND_NAME              := NULL;--v_src_subs(i).Brand_name;
+          v_tar_subs(v_idx).DEVICE_MODEL            := NULL;--v_src_subs(i).handset_model_desc;
+          v_tar_subs(v_idx).ISBYOD                  := NULL;--v_src_subs(i).external_flag;
+          v_tar_subs(v_idx).EXTRACT_DATE            := v_src_subs(i).EXTRACT_DATE;
+          v_tar_subs(v_idx).SRC_SUBSID              := v_src_subs(i).s_subs_id;
+          v_tar_subs(v_idx).SRC_CUSTID              := v_src_subs(i).s_cust_id;
+          v_tar_subs(v_idx).SRC_ACTUALUSERID        := v_src_subs(i).s_using_cust_id;
+          v_tar_subs(v_idx).SRC_ACCTID              := v_src_subs(i).s_acct_id;
+          v_tar_subs(v_idx).RED_LIST_TYPE           := PKG_GRETA2_PUB.f_get_newdict('MID_REDLIST.DUNNING_NOTI',v_src_subs(i).Dunning_Noti,'1');
+          v_tar_subs(v_idx).BRAND_ID                := v_src_subs(i).brand_id;
+          v_tar_subs(v_idx).fn_member_flag                  := NULL;--v_src_subs(i).fn_member_flag;
+          v_tar_subs(v_idx).legalization_status             := NULL;
+          v_tar_subs(v_idx).legalization_reason             := NULL;
+          v_tar_subs(v_idx).legalization_sub_reason         := NULL;
+          v_tar_subs(v_idx).legalization_date               := NULL;--v_src_subs(i).legalization_date;---need check
+          v_tar_subs(v_idx).legalization_agent_id           := NULL;
+          v_tar_subs(v_idx).Legalization_agent_name         := v_src_subs(i).Legalization_agent_name;
+          v_tar_subs(v_idx).document_guide                  := NULL;
+          v_tar_subs(v_idx).Sales_Number                    := v_src_subs(i).Sales_Number;
+          v_tar_subs(v_idx).portable                        := v_src_subs(i).portable;
+          v_tar_subs(v_idx).stopbilling_flag                := v_src_subs(i).stopbilling_flag;
+          v_tar_subs(v_idx).is_sme                          := v_src_subs(i).is_sme;
+          --v_tar_subs(v_idx).fs_status_detail_type           := v_src_subs(i).fs_status_detail_type;
+          v_tar_subs(v_idx).contract_type                   := NULL;
+          v_tar_subs(v_idx).contract_number                 := NULL;
+          v_tar_subs(v_idx).fun_ucc_annex_no                := NULL;
+          v_tar_subs(v_idx).renewal_date                    := to_char(to_date(v_src_subs(i).renewal_date,'YYYY-MM-DD HH24:MI:SS'),'YYYYMMDD');
+          v_tar_subs(v_idx).addendum_id                     := v_src_subs(i).addendum_id;
+          v_tar_subs(v_idx).minimum_expired_period          := to_char(to_date(v_src_subs(i).minimum_expired_period,'YYYY-MM-DD HH24:MI:SS'),'YYYYMMDD');
+          v_tar_subs(v_idx).attention_id_number             := v_src_subs(i).attention_id_number;
+          v_tar_subs(v_idx).cti_access_code                 := v_src_subs(i).cti_access_code;
+          v_tar_subs(v_idx).cti_access_code_flag            := v_src_subs(i).cti_access_code_flag;
+          v_tar_subs(v_idx).mask_telephone_number              :=           v_src_subs(i).mask_telephone_number      ; 
+          v_tar_subs(v_idx).social_level                       :=           v_src_subs(i).social_level               ; 
+          v_tar_subs(v_idx).target_market                      :=           v_src_subs(i).new_target_market              ; 
+          v_tar_subs(v_idx).coddane                            :=           v_src_subs(i).coddane                    ; 
+          v_tar_subs(v_idx).c_o_permanence_clause              :=           v_src_subs(i).c_o_permanence_clause      ; 
+          v_tar_subs(v_idx).c_contract_starttime               :=           v_src_subs(i).c_contract_starttime       ; 
+          v_tar_subs(v_idx).c_contract_endtime                 :=           v_src_subs(i).c_contract_endtime         ; 
+          v_tar_subs(v_idx).c_contract_periods                 :=           v_src_subs(i).c_contract_periods         ; 
+          v_tar_subs(v_idx).c_contract_amount                  :=           v_src_subs(i).c_contract_amount          ; 
+          v_tar_subs(v_idx).period_of_paid                     :=           v_src_subs(i).period_of_paid             ; 
+          v_tar_subs(v_idx).suspend_hours                      :=           v_src_subs(i).suspend_hours              ; 
+          v_tar_subs(v_idx).prod_code                          :=           v_src_subs(i).p_prod_code;
+          v_tar_subs(v_idx).predeactive_status_detail          := case when v_src_subs(i).predeactive_reason = '21101' then
+                                                                            '22'
+                                                                       when v_src_subs(i).predeactive_reason = '1113' then
+                                                                            '23'
+                                                                       else
+                                                                            NULL
+                                                                  end;
+                                                                            
+
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_SUBS_IND ARRAY wrong';
+              v_err.key_value := v_src_subs(i).subs_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_SUBS_IND ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+        -----------------END INIT DM_SUBS_IND ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_SUBS_IND---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_SUBS_IND values v_tar_subs(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_SUBS_IND';
+                  v_err.key_value := v_tar_subs(sql%bulk_exceptions(the_err).error_index).subs_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_SUBS_IND';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_SUBS_IND---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_subs.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_SUBS_IND;
+  
+  end PKG_GRETA21_CAS_DM;
