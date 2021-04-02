@@ -1,0 +1,1134 @@
+create or replace package body PKG_GRETA21_CAS_DM is
+
+  -- Author  : XWX193099
+  -- Created : 2017-09-30 11:14:34
+  -- Purpose : generate DM migration table
+
+  DEF_CURRENCY      constant VARCHAR2(4) := '1032';
+
+  procedure P_DM_CUST_IND(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(32000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.cust_id
+  ,a.ident_type_code
+  ,a.ident_type_name
+  ,a.ident_no
+  ,a.ident_eff_date
+  ,a.ident_city_code
+  ,a.ident_city_name
+  ,a.city_residence_code
+  ,a.city_residence_name
+  ,a.cust_type
+  ,a.cust_role
+  ,a.cust_segment_code
+  ,a.cust_segment
+  ,a.sub_segment
+  ,a.cust_level
+  ,a.cust_status
+  ,a.title
+  ,a.first_name
+  ,a.middle_name
+  ,a.last_name
+  ,a.second_last_name
+  ,a.gender
+  ,a.birthday
+  ,a.contact_number_1
+  ,a.contact_number_2
+  ,a.contact_number_3
+  ,a.email
+  ,a.lang
+  ,a.marriage
+  ,a.occupation
+  ,a.position
+  ,a.create_time
+  ,a.create_empl_id
+  ,a.create_empl_name
+  ,a.eff_date
+  ,a.exp_date
+  ,a.extract_date
+  ,a.valid_ident_flag
+  ,to_char(a.valid_ident_date,'YYYYMMDD') valid_ident_date
+  ,a.clasificacion
+  ,a.user_message
+  ,a.credit_limit
+  ,a.risk_level
+  ,a.date_of_query
+  ,a.facebook_id
+  ,a.twitter_id
+  ,a.instagram_id
+  ,a.google_email
+  ,a.social_level
+  ,a.ceropapel_flag
+  ,a.ceropapel_date
+  ,a.visibility
+  ,a.contract_type
+  ,a.enterprise_name
+  ,a.work_period
+  ,a.salary
+  ,a.reference_name
+  ,a.reference_phone_number
+  ,a.reference_enterprise
+  ,a.reference2_name
+  ,a.reference2_phone_number
+  ,a.reference2_enterprise
+  ,a.risk_category_dc
+  ,a.ident_exp_date
+  ,a.ident_authority   , b.FLAG_POST_ACCT,b.t_cust_id, 'REGISTRATION CUSTOMER' NEW_CUST_ROLE,c.dunning_noti
+      from s3_data.mid_cust a
+    left join (select distinct s_cust_id,t_cust_id, FLAG_POST_ACCT from SRC_MED.pre_cas) b
+    on a.cust_id = b.s_cust_id
+    left join s3_data.MID_REDLIST c
+        on c.ID_TYPE = a.IDENT_TYPE_CODE and c.ID_NUMBER = a.IDENT_NO and c.redlist_type='C';
+
+    type tab_src_cust is table of src_cur%rowtype index by binary_integer;
+    v_src_cust tab_src_cust;
+    --tariff table
+    --target table
+    type tab_tar_cust_ind is table of SRC_MED.DM_CUST_IND%rowtype index by binary_integer;
+    v_tar_cust_ind tab_tar_cust_ind;
+
+    --<<BEGIN: Customize variable definition area>>
+    v_MARRIED_STATUS  varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_CUST_IND',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_CUST', i_index, v_partname);
+
+    v_src_sql := '
+    select a.cust_id
+  ,a.ident_type_code
+  ,a.ident_type_name
+  ,a.ident_no
+  ,a.ident_eff_date
+  ,a.ident_city_code
+  ,a.ident_city_name
+  ,a.city_residence_code
+  ,a.city_residence_name
+  ,a.cust_type
+  ,a.cust_role
+  ,a.cust_segment_code
+  ,a.cust_segment
+  ,a.sub_segment
+  ,a.cust_level
+  ,a.cust_status
+  ,a.title
+  ,a.first_name
+  ,a.middle_name
+  ,a.last_name
+  ,a.second_last_name
+  ,a.gender
+  ,a.birthday
+  ,a.contact_number_1
+  ,a.contact_number_2
+  ,a.contact_number_3
+  ,a.email
+  ,a.lang
+  ,a.marriage
+  ,a.occupation
+  ,a.position
+  ,a.create_time
+  ,a.create_empl_id
+  ,a.create_empl_name
+  ,a.eff_date
+  ,a.exp_date
+  ,a.extract_date
+  ,a.valid_ident_flag
+  ,to_char(a.valid_ident_date,''YYYYMMDD'')  valid_ident_date
+  ,a.clasificacion
+  ,a.user_message
+  ,a.credit_limit
+  ,a.risk_level
+  ,a.date_of_query
+  ,a.facebook_id
+  ,a.twitter_id
+  ,a.instagram_id
+  ,a.google_email
+  ,a.social_level
+  ,a.ceropapel_flag
+  ,a.ceropapel_date
+  ,a.visibility
+  ,a.contract_type
+  ,a.enterprise_name
+  ,a.work_period
+  ,a.salary
+  ,a.reference_name
+  ,a.reference_phone_number
+  ,a.reference_enterprise
+  ,a.reference2_name
+  ,a.reference2_phone_number
+  ,a.reference2_enterprise
+  ,a.risk_category_dc
+  ,a.ident_exp_date
+  ,a.ident_authority   ,
+           b.FLAG_POST_ACCT,
+           b.t_cust_id,
+           ''31415'' NEW_CUST_ROLE,
+           c.Dunning_Noti
+      from s3_data.mid_cust partition('||v_partname||') a
+      join (select distinct s_cust_id,t_cust_id, FLAG_POST_ACCT from SRC_MED.pre_cas partition('||v_partname||')) b
+        on a.cust_id = b.s_cust_id
+      left join s3_data.MID_REDLIST c
+        on c.ID_TYPE = a.IDENT_TYPE_CODE and c.ID_NUMBER = a.IDENT_NO and c.redlist_type=''C''
+    union
+    select a.cust_id
+  ,a.ident_type_code
+  ,a.ident_type_name
+  ,a.ident_no
+  ,a.ident_eff_date
+  ,a.ident_city_code
+  ,a.ident_city_name
+  ,a.city_residence_code
+  ,a.city_residence_name
+  ,a.cust_type
+  ,a.cust_role
+  ,a.cust_segment_code
+  ,a.cust_segment
+  ,a.sub_segment
+  ,a.cust_level
+  ,a.cust_status
+  ,a.title
+  ,a.first_name
+  ,a.middle_name
+  ,a.last_name
+  ,a.second_last_name
+  ,a.gender
+  ,a.birthday
+  ,a.contact_number_1
+  ,a.contact_number_2
+  ,a.contact_number_3
+  ,a.email
+  ,a.lang
+  ,a.marriage
+  ,a.occupation
+  ,a.position
+  ,a.create_time
+  ,a.create_empl_id
+  ,a.create_empl_name
+  ,a.eff_date
+  ,a.exp_date
+  ,a.extract_date
+  ,a.valid_ident_flag
+  ,to_char(a.valid_ident_date,''YYYYMMDD'')  valid_ident_date
+  ,a.clasificacion
+  ,a.user_message
+  ,a.credit_limit
+  ,a.risk_level
+  ,a.date_of_query
+  ,a.facebook_id
+  ,a.twitter_id
+  ,a.instagram_id
+  ,a.google_email
+  ,a.social_level
+  ,a.ceropapel_flag
+  ,a.ceropapel_date
+  ,a.visibility
+  ,a.contract_type
+  ,a.enterprise_name
+  ,a.work_period
+  ,a.salary
+  ,a.reference_name
+  ,a.reference_phone_number
+  ,a.reference_enterprise
+  ,a.reference2_name
+  ,a.reference2_phone_number
+  ,a.reference2_enterprise
+  ,a.risk_category_dc
+  ,a.ident_exp_date
+  ,a.ident_authority,
+           case
+           when b.subs_payment_type=0 then ''N''
+           else ''Y'' end as FLAG_POST_ACCT,
+           b.t_using_cust_id t_cust_id,
+           ''31416'' NEW_CUST_ROLE,
+           '''' Dunning_Noti
+      from s3_data.mid_cust partition('||v_partname||') a
+      join SRC_MED.pre_cas_using_cust_id partition('||v_partname||') b
+        on a.cust_id = b.s_using_cust_id and b.t_using_cust_id is not null';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_cust.delete;
+      v_tar_cust_ind.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_cust limit v_batchnum;
+      exit when v_src_cust.count = 0;
+
+      v_idx := 1;
+      if v_src_cust.count > 0 then
+        for i in v_src_cust.first .. v_src_cust.last loop
+
+        if v_src_cust(i).MARRIAGE = 'S' then
+           v_MARRIED_STATUS := 'S';
+        elsif v_src_cust(i).MARRIAGE = 'C' then
+           v_MARRIED_STATUS := 'C';
+        elsif v_src_cust(i).MARRIAGE = 'D' then
+           v_MARRIED_STATUS := 'D';
+        else
+           v_MARRIED_STATUS := 'O';
+        end if;
+
+        ------------1 START INIT DM_CUST_IND ARRAY--------------------
+        begin
+          v_tar_cust_ind(v_idx).CUST_ID                  := v_src_cust(i).t_cust_id;
+          v_tar_cust_ind(v_idx).CUST_CODE                := v_src_cust(i).t_cust_id;
+          v_tar_cust_ind(v_idx).BIRTHDAY_TYPE            := NULL;
+          v_tar_cust_ind(v_idx).BIRTHDAY                 := v_src_cust(i).birthday;
+          v_tar_cust_ind(v_idx).CUST_CREDIT_LEVEL        := NULL;
+          v_tar_cust_ind(v_idx).CUST_LAYER               := NULL;
+          v_tar_cust_ind(v_idx).CUST_LEVEL               := v_src_cust(i).CUST_LEVEL;
+          v_tar_cust_ind(v_idx).CUST_ROLE                := trim(v_src_cust(i).NEW_CUST_ROLE);
+          v_tar_cust_ind(v_idx).CUST_SEGMENT             := NULL;---v_src_cust(i).CUST_SEGMENT;----check
+          v_tar_cust_ind(v_idx).CUST_LANG                := v_src_cust(i).LANG;
+          v_tar_cust_ind(v_idx).CUST_STATUS              := '2';--PKG_GRETA2_PUB.f_get_newdict('MID_CUST.STATUS',v_src_cust(i).cust_status,'1');
+          v_tar_cust_ind(v_idx).CUST_TYPE                := '1';--v_src_cust(i).CUST_TYPE;
+          v_tar_cust_ind(v_idx).CREATE_TIME              := v_src_cust(i).CREATE_TIME;
+          v_tar_cust_ind(v_idx).CREATE_EMPL_ID           := PKG_GRETA2_DFT.DEF_CREATE_EMPL_ID;---v_src_cust(i).CREATE_EMPL_ID;
+          v_tar_cust_ind(v_idx).DFT_ACCT_ID              := NULL;
+          v_tar_cust_ind(v_idx).EDUCATION                := NULL;
+          v_tar_cust_ind(v_idx).EFF_DATE                 := v_src_cust(i).EFF_DATE;
+          v_tar_cust_ind(v_idx).EMAIL                    := v_src_cust(i).EMAIL;
+          v_tar_cust_ind(v_idx).EXP_DATE                 := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_cust_ind(v_idx).FAX                      := NULL;
+          v_tar_cust_ind(v_idx).FIRST_NAME               := v_src_cust(i).FIRST_NAME;
+          v_tar_cust_ind(v_idx).MIDDLE_NAME              := v_src_cust(i).MIDDLE_NAME;
+          v_tar_cust_ind(v_idx).LAST_NAME                := v_src_cust(i).LAST_NAME;
+          v_tar_cust_ind(v_idx).GENDER                   := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.GENDER',v_src_cust(i).GENDER,'1');
+          v_tar_cust_ind(v_idx).HOME_PAGE                := NULL;
+          v_tar_cust_ind(v_idx).HOME_PHONE               := NULL;
+          v_tar_cust_ind(v_idx).IDENT_ADDR               := NULL;
+          v_tar_cust_ind(v_idx).IDENT_AUTHORITY          := NULL;--PKG_GRETA2_PUB.f_get_newdict('MID_CUST.VALID_IDENT_FLAG',v_src_cust(i).Valid_Ident_flag,'1');
+          v_tar_cust_ind(v_idx).IDENT_EFF_DATE           := v_src_cust(i).IDENT_EFF_DATE;
+          v_tar_cust_ind(v_idx).IDENT_EXP_DATE           := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_cust_ind(v_idx).IDENT_ISSUE_COUNTRY      := NULL;
+          v_tar_cust_ind(v_idx).IDENT_NO                 := v_src_cust(i).IDENT_NO;
+          v_tar_cust_ind(v_idx).IDENT_TYPE               := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.IDENT_TYPE',v_src_cust(i).IDENT_TYPE_CODE,'1');
+          v_tar_cust_ind(v_idx).MARRIAGE                 := v_MARRIED_STATUS;
+          v_tar_cust_ind(v_idx).MOIBLE_PHONE             := NULL;
+          v_tar_cust_ind(v_idx).NATIONALITY              := NULL;
+          v_tar_cust_ind(v_idx).NATIVE_PLACE             := NULL;
+          v_tar_cust_ind(v_idx).OCCUPATION               := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.OCCUPATION',v_src_cust(i).OCCUPATION,'1');
+          v_tar_cust_ind(v_idx).OFFICE_PHONE             := NULL;
+          v_tar_cust_ind(v_idx).PHONIC_LANG              := v_src_cust(i).LANG;
+          v_tar_cust_ind(v_idx).POSITION                 := v_src_cust(i).POSITION;
+          v_tar_cust_ind(v_idx).RACE                     := NULL;
+          v_tar_cust_ind(v_idx).REGSTATUS                := NULL;
+          v_tar_cust_ind(v_idx).RELIGION                 := NULL;
+          v_tar_cust_ind(v_idx).SALARY                   := v_src_cust(i).Salary;
+          v_tar_cust_ind(v_idx).SALES_CHANNEL_TYPE       := NULL;
+          v_tar_cust_ind(v_idx).SALES_CHANNEL_ID         := NULL;
+          v_tar_cust_ind(v_idx).SALES_ID                 := NULL;
+          v_tar_cust_ind(v_idx).SRV_CHANNEL_ID           := NULL;
+          v_tar_cust_ind(v_idx).SRV_CHANNEL_TYPE         := NULL;
+          v_tar_cust_ind(v_idx).SRV_OPER_CODE            := NULL;
+          v_tar_cust_ind(v_idx).SRV_OPER_NAME            := NULL;
+          v_tar_cust_ind(v_idx).STATUS_REASON            := NULL;
+          v_tar_cust_ind(v_idx).STATUS_TIME              := v_src_cust(i).EFF_DATE;
+          v_tar_cust_ind(v_idx).TITLE                    := '1';--v_src_cust(i).TITLE;
+          v_tar_cust_ind(v_idx).WRITTEN_LANG             := NULL;
+          v_tar_cust_ind(v_idx).DATA_BATCH               := NULL;
+          v_tar_cust_ind(v_idx).BE_ID                    := PKG_GRETA2_DFT.DEF_BE_ID;
+          v_tar_cust_ind(v_idx).PARTITION_ID             := MOD(v_tar_cust_ind(v_idx).CUST_ID,16);
+          v_tar_cust_ind(v_idx).FLEX_TEXT                := NULL;
+          v_tar_cust_ind(v_idx).SECOND_LAST_NAME         := v_src_cust(i).Second_LAST_NAME;
+          v_tar_cust_ind(v_idx).CONTACT_NUMBER_1         := v_src_cust(i).contact_number_1;
+          v_tar_cust_ind(v_idx).CONTACT_NUMBER_2         := v_src_cust(i).contact_number_2;
+          v_tar_cust_ind(v_idx).CONTACT_NUMBER_3         := v_src_cust(i).contact_number_3;
+          v_tar_cust_ind(v_idx).CLASIFICACION            := v_src_cust(i).Clasificacion;
+          v_tar_cust_ind(v_idx).USER_MESSAGE             := v_src_cust(i).User_message;
+          v_tar_cust_ind(v_idx).CREDIT_LIMIT             := v_src_cust(i).credit_limit;
+          v_tar_cust_ind(v_idx).RISK_LEVEL               := v_src_cust(i).risk_level;
+          v_tar_cust_ind(v_idx).DATE_OF_QUERY            := v_src_cust(i).date_of_query;
+          v_tar_cust_ind(v_idx).FACEBOOK_ID              := v_src_cust(i).facebook_id;
+          v_tar_cust_ind(v_idx).TWITTER_ID               := v_src_cust(i).twitter_id;
+          v_tar_cust_ind(v_idx).INSTAGRAM_ID             := v_src_cust(i).Instagram_id;
+          v_tar_cust_ind(v_idx).GOOGLE_EMAIL             := v_src_cust(i).google_email;
+          v_tar_cust_ind(v_idx).SOCIAL_LEVEL             := v_src_cust(i).Social_level;
+          v_tar_cust_ind(v_idx).VISIBILITY               := PKG_GRETA2_PUB.f_get_newdict('MID_CUST.VISIBILITY',v_src_cust(i).Visibility,'1');
+          v_tar_cust_ind(v_idx).CONTRACT_TYPE            := v_src_cust(i).Contract_Type ;
+          v_tar_cust_ind(v_idx).ENTERPRISE_NAME          := v_src_cust(i).Enterprise_Name;
+          v_tar_cust_ind(v_idx).WORK_PERIOD              := v_src_cust(i).WORK_PERIOD;
+          v_tar_cust_ind(v_idx).REFERENCE_NAME           := v_src_cust(i).REFERENCE_NAME;
+          v_tar_cust_ind(v_idx).REFERENCE_PHONE_NUMBER   := v_src_cust(i).REFERENCE_PHONE_NUMBER;
+          v_tar_cust_ind(v_idx).REFERENCE_ENTERPRISE     := v_src_cust(i).REFERENCE_ENTERPRISE;
+          v_tar_cust_ind(v_idx).REFERENCE2_NAME          := v_src_cust(i).REFERENCE2_NAME;
+          v_tar_cust_ind(v_idx).REFERENCE2_PHONE_NUMBER  := v_src_cust(i).REFERENCE2_PHONE_NUMBER;
+          v_tar_cust_ind(v_idx).REFERENCE2_ENTERPRISE    := v_src_cust(i).REFERENCE2_ENTERPRISE;
+          v_tar_cust_ind(v_idx).FLAG_ISBES               := 'N';-------check
+          v_tar_cust_ind(v_idx).FLAG_POST_ACCT           := v_src_cust(i).FLAG_POST_ACCT;
+          v_tar_cust_ind(v_idx).CITY_RESIDENCE_CODE      := v_src_cust(i).CITY_RESIDENCE_CODE;
+          v_tar_cust_ind(v_idx).CUST_SEGMENT_CODE        := v_src_cust(i).CUST_SEGMENT_CODE;
+          v_tar_cust_ind(v_idx).VALID_IDENT_DATE         := v_src_cust(i).VALID_IDENT_DATE;
+          v_tar_cust_ind(v_idx).AUTHENTICATION_MODE      := NULL;
+          v_tar_cust_ind(v_idx).EXTRACT_DATE             := v_src_cust(i).EXTRACT_DATE;
+          v_tar_cust_ind(v_idx).CEROPAPEL_FLAG           := v_src_cust(i).CEROPAPEL_FLAG;
+          v_tar_cust_ind(v_idx).CEROPAPEL_DATE           := v_src_cust(i).CEROPAPEL_DATE;
+          v_tar_cust_ind(v_idx).REASON_CERO_PAPEL        := NULL;---v_src_cust(i).REASON_CERO_PAPEL;
+          v_tar_cust_ind(v_idx).SRC_CUSTID               := v_src_cust(i).cust_id;
+          v_tar_cust_ind(v_idx).RED_LIST_TYPE            := PKG_GRETA2_PUB.f_get_newdict('MID_REDLIST.DUNNING_NOTI',v_src_cust(i).Dunning_Noti,'1');
+          v_tar_cust_ind(v_idx).risk_category_dc         := v_src_cust(i).risk_category_dc;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_CUST_IND ARRAY wrong';
+              v_err.key_value := v_src_cust(i).cust_id;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_CUST_IND ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+
+        -----------------END INIT DM_CUST_IND ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_CUST_IND---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_CUST_IND values v_tar_cust_ind(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_CUST_IND';
+                  v_err.key_value := v_tar_cust_ind(sql%bulk_exceptions(the_err).error_index).cust_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_CUST_IND';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_CUST_IND---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_cust.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_CUST_IND;
+
+  /*procedure P_DM_CUST_ORG(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    --v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.*,
+           b.t_subs_id,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.p_offer_inst_id,
+           b.p_prod_inst_id
+      from s3_data.mid_cust_org a
+      join SRC_MED.pre_cas b
+        on a.cust_id = b.s_cust_id;
+
+    type tab_src_cust_org is table of src_cur%rowtype index by binary_integer;
+    v_src_cust_org tab_src_cust_org;
+    --tariff table
+    --target table
+    type tab_tar_cust_org is table of SRC_MED.DM_CUST_ORG%rowtype index by binary_integer;
+    v_tar_cust_org tab_tar_cust_org;
+
+    --<<BEGIN: Customize variable definition area>>
+    --v_s_p_offering_id  varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_CUST_ORG',i_region,i_index, v_batchnum);
+    -- get part name
+    --pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_CUST', i_index, v_partname);
+
+    \*v_src_sql := '
+    select a.*,
+           b.s_subs_id,
+           b.t_subs_id,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.p_offer_inst_id,
+           b.p_prod_inst_id
+      from s3_data.MID_CUST_ORG partition('||v_partname||') a
+      join SRC_MED.pre_cas partition('||v_partname||') b
+        on a.cust_id = b.s_cust_id';*\
+    v_src_sql := '
+    select a.*,
+           b.t_subs_id,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.p_offer_inst_id,
+           b.p_prod_inst_id
+      from s3_data.mid_cust_org a
+      join SRC_MED.pre_cas b
+        on a.cust_id = b.s_cust_id';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_cust_org.delete;
+      v_tar_cust_org.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_cust_org limit v_batchnum;
+      exit when v_src_cust_org.count = 0;
+
+      v_idx := 1;
+      if v_src_cust_org.count > 0 then
+        for i in v_src_cust_org.first .. v_src_cust_org.last loop
+        ------------1 START INIT DM_CUST_ORG ARRAY--------------------
+
+        v_tar_cust_org(v_idx).CUST_ID                   := v_src_cust_org(i).t_cust_id;
+        v_tar_cust_org(v_idx).CUST_CODE                 := v_src_cust_org(i).t_cust_id;
+        v_tar_cust_org(v_idx).CUST_TYPE                 := NULL;
+        v_tar_cust_org(v_idx).CUST_ROLE                 := NULL;
+        v_tar_cust_org(v_idx).CUST_SEGMENT              := NULL;
+        v_tar_cust_org(v_idx).CUST_LAYER                := NULL;
+        v_tar_cust_org(v_idx).CUST_LEVEL                := NULL;
+        v_tar_cust_org(v_idx).CUST_CREDIT_LEVEL         := NULL;
+        v_tar_cust_org(v_idx).CUST_STATUS               := NULL;
+        v_tar_cust_org(v_idx).CUST_LANG                 := NULL;
+        v_tar_cust_org(v_idx).CREATE_TIME               := NULL;
+        v_tar_cust_org(v_idx).CREATE_EMPL_ID            := NULL;
+        v_tar_cust_org(v_idx).DFT_ACCT_ID               := NULL;
+        v_tar_cust_org(v_idx).IDENT_TYPE                := NULL;
+        v_tar_cust_org(v_idx).IDENT_NO                  := NULL;
+        v_tar_cust_org(v_idx).IDENT_AUTHORITY           := NULL;
+        v_tar_cust_org(v_idx).IDENT_EFF_DATE            := NULL;
+        v_tar_cust_org(v_idx).IDENT_EXP_DATE            := NULL;
+        v_tar_cust_org(v_idx).IDENT_ISSUE_COUNTRY       := NULL;
+        v_tar_cust_org(v_idx).IDENT_ADDR                := NULL;
+        v_tar_cust_org(v_idx).STATUS_REASON             := NULL;
+        v_tar_cust_org(v_idx).STATUS_TIME               := NULL;
+        v_tar_cust_org(v_idx).INDUSTRY_ID               := NULL;
+        v_tar_cust_org(v_idx).ORG_TYPE                  := NULL;
+        v_tar_cust_org(v_idx).ORG_LEVEL                 := NULL;
+        v_tar_cust_org(v_idx).ORG_NAME                  := NULL;
+        v_tar_cust_org(v_idx).ORG_S_NAME                := NULL;
+        v_tar_cust_org(v_idx).ORG_WEB                   := NULL;
+        v_tar_cust_org(v_idx).ORG_FAX                   := NULL;
+        v_tar_cust_org(v_idx).ORG_EMAIL                 := NULL;
+        v_tar_cust_org(v_idx).ORG_PHONE                 := NULL;
+        v_tar_cust_org(v_idx).ORG_LAYER                 := NULL;
+        v_tar_cust_org(v_idx).OFFICE_PHONE              := NULL;
+        v_tar_cust_org(v_idx).ARTIFICIAL_PERSON         := NULL;
+        v_tar_cust_org(v_idx).FOUNDATION_DATE           := NULL;
+        v_tar_cust_org(v_idx).SIZE_LEVEL                := NULL;
+        v_tar_cust_org(v_idx).EFF_DATE                  := NULL;
+        v_tar_cust_org(v_idx).EXP_DATE                  := NULL;
+        v_tar_cust_org(v_idx).WRITTEN_LANG              := NULL;
+        v_tar_cust_org(v_idx).MOBILE_PHONE              := NULL;
+        v_tar_cust_org(v_idx).REGISTER_AMOUNT           := NULL;
+        v_tar_cust_org(v_idx).SRV_CHANNEL_ID            := NULL;
+        v_tar_cust_org(v_idx).SRV_CHANNEL_TYPE          := NULL;
+        v_tar_cust_org(v_idx).SRV_OPER_CODE             := NULL;
+        v_tar_cust_org(v_idx).SRV_OPER_NAME             := NULL;
+        v_tar_cust_org(v_idx).DATA_BATCH                := NULL;
+        v_tar_cust_org(v_idx).BE_ID                     := NULL;
+        v_tar_cust_org(v_idx).PARTITION_ID              := NULL;
+        v_tar_cust_org(v_idx).FLEX_TEXT                 := NULL;
+        v_tar_cust_org(v_idx).SALES_CHANNEL_TYPE        := NULL;
+        v_tar_cust_org(v_idx).SALES_CHANNEL_ID          := NULL;
+        v_tar_cust_org(v_idx).SALES_ID                  := NULL;
+        v_tar_cust_org(v_idx).CONTACT_NUMBER_1          := NULL;
+        v_tar_cust_org(v_idx).CONTACT_NUMBER_2          := NULL;
+        v_tar_cust_org(v_idx).CONTACT_NUMBER_3          := NULL;
+        v_tar_cust_org(v_idx).CLASIFICACION             := NULL;
+        v_tar_cust_org(v_idx).USER_MESSAGE              := NULL;
+        v_tar_cust_org(v_idx).CREDIT_LIMIT              := NULL;
+        v_tar_cust_org(v_idx).RISK_LEVEL                := NULL;
+        v_tar_cust_org(v_idx).DATE_OF_QUERY             := NULL;
+        v_tar_cust_org(v_idx).FACEBOOK_ID               := NULL;
+        v_tar_cust_org(v_idx).TWITTER_ID                := NULL;
+        v_tar_cust_org(v_idx).INSTAGRAM_ID              := NULL;
+        v_tar_cust_org(v_idx).GOOGLE_EMAIL              := NULL;
+        v_tar_cust_org(v_idx).SOCIAL_LEVEL              := NULL;
+        v_tar_cust_org(v_idx).VISIBILITY                := NULL;
+        v_tar_cust_org(v_idx).CONTRACT_TYPE             := NULL;
+        v_tar_cust_org(v_idx).ENTERPRISE_NAME           := NULL;
+        v_tar_cust_org(v_idx).WORK_PERIOD               := NULL;
+        v_tar_cust_org(v_idx).REFERENCE_NAME            := NULL;
+        v_tar_cust_org(v_idx).REFERENCE_PHONE_NUMBER    := NULL;
+        v_tar_cust_org(v_idx).REFERENCE_ENTERPRISE      := NULL;
+        v_tar_cust_org(v_idx).REFERENCE2_NAME           := NULL;
+        v_tar_cust_org(v_idx).REFERENCE2_PHONE_NUMBER   := NULL;
+        v_tar_cust_org(v_idx).REFERENCE2_ENTERPRISE     := NULL;
+        v_tar_cust_org(v_idx).EXTRACT_DATE              := NULL;
+
+
+        -----------------END INIT DM_CUST_ORG ARRAY---------------------------
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+        ------------1 START INSERT DM_CUST_ORG---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert \* +append nologging *\ into SRC_MED.DM_CUST_ORG values v_tar_cust_org(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_CUST_ORG';
+                  v_err.key_value := v_tar_cust_org(sql%bulk_exceptions(the_err).error_index).cust_id;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_CUST_ORG';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_CUST_ORG---------------------------
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_cust_org.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_CUST_ORG;*/
+
+  procedure P_DM_ADDR_TABLE(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(10000);
+    --v_tab_exists                    number:=0;
+    --v_sql                           varchar2(5000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.*,
+           b.t_cust_id TAR_ID,
+           a.entity_type TAR_TYPE,
+           a.addr_type new_addr_type,
+           b.t_cust_id,
+           b.cust_eff_date addr_eff_date,
+           c.*,
+           e.neigh_id,
+           e.region_biz_code,
+           e.neigh_name,
+           a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS a
+      join SRC_MED.pre_cas b
+        on a.ENTITY_ID = b.s_cust_id
+      left join src_med.dm_address_mapping c
+        on a.dane_code_municipality=c.addr_5
+      left join exe_fixed.temp_neigh e
+        on lpad(a.district_code,5,'0')  = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code;
+
+    type tab_src_addr is table of src_cur%rowtype index by binary_integer;
+    v_src_addr tab_src_addr;
+    --tariff table
+    --target table
+    type tab_tar_addr is table of SRC_MED.DM_ADDR_INFO%rowtype index by binary_integer;
+    v_tar_addr tab_tar_addr;
+
+    type tab_tar_addr_ref is table of SRC_MED.DM_ADDR_REF%rowtype index by binary_integer;
+    v_tar_addr_ref tab_tar_addr_ref;
+
+    --<<BEGIN: Customize variable definition area>>
+    --v_s_p_offering_id  varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_ADDR_TABLE',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_ADDRESS', i_index, v_partname);
+    
+    
+    
+    v_src_sql := '
+    select /*+use_hash(a,c,d,e)*/a.*,c.t_cust_id TAR_ID,''C'' TAR_TYPE,''2'' new_addr_type,c.t_cust_id,c.cust_eff_date addr_eff_date,d.*,
+    e.neigh_id,e.region_biz_code,e.neigh_name,a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS partition('||v_partname||')  a
+      join src_med.temp_cust_addr c
+        on a.ENTITY_ID = c.s_cust_id and a.entity_type=''C'' and a.addr_type=''3''
+      left join src_med.dm_address_mapping d
+        on a.dane_code_municipality=d.addr_5
+      left join exe_fixed.temp_neigh e
+        on a.district_code  = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code
+    union
+    select /*+use_hash(a,c,d,e)*/a.*,c.t_acct_id TAR_ID,''A'' TAR_TYPE,''1'' new_addr_type,c.t_cust_id,c.acct_eff_date addr_eff_date,d.*,
+    e.neigh_id,e.region_biz_code,e.neigh_name,a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS partition('||v_partname||') a
+      join src_med.temp_acct_addr c
+        on a.ENTITY_ID = c.s_acct_id and a.entity_type=''A'' and a.addr_type=''1''
+      left join src_med.dm_address_mapping d
+        on a.dane_code_municipality=d.addr_5
+      left join exe_fixed.temp_neigh e
+        on a.district_code  = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code
+    union
+    select /*+use_hash(a,c,d,e)*/a.*,c.t_using_cust_id TAR_ID,''C'' TAR_TYPE,''2'' new_addr_type,c.t_using_cust_id t_cust_id,c.subs_eff_date addr_eff_date,d.*,
+    e.neigh_id,e.region_biz_code,e.neigh_name,a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS partition('||v_partname||')  a
+      join src_med.temp_using_cust_addr c
+        on a.ENTITY_ID = c.s_subs_id and c.t_using_cust_id is not null and c.addr_entity_type=''S'' and a.entity_type=''S'' and a.addr_type=''2''
+      left join src_med.dm_address_mapping d
+        on a.dane_code_municipality=d.addr_5
+      left join exe_fixed.temp_neigh e
+        on a.district_code = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code
+    union
+    select /*+use_hash(a,c,d,e)*/a.*,c.t_using_cust_id TAR_ID,''C'' TAR_TYPE,''2'' new_addr_type,c.t_using_cust_id t_cust_id,c.acct_eff_date addr_eff_date,d.*,
+    e.neigh_id,e.region_biz_code,e.neigh_name,a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS partition('||v_partname||')  a
+      join src_med.temp_using_cust_addr c
+        on a.ENTITY_ID = c.s_acct_id and c.t_using_cust_id is not null and c.addr_entity_type=''A'' and a.entity_type=''A'' and a.addr_type=''1''
+      left join src_med.dm_address_mapping d
+        on a.dane_code_municipality=d.addr_5
+      left join exe_fixed.temp_neigh e
+        on a.district_code  = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code
+     union
+     select /*+use_hash(a,c,d,e)*/a.*,c.p_prod_inst_id TAR_ID,''S'' TAR_TYPE,''8'' new_addr_type,c.t_cust_id,c.subs_eff_date addr_eff_date,d.*,
+    e.neigh_id,e.region_biz_code,e.neigh_name,a.exp_date addr_exp_date
+      from s3_data.MID_ADDRESS partition('||v_partname||') a
+      join src_med.pre_cas_all c
+        on a.ENTITY_ID = c.s_subs_id and a.entity_type=''S'' and a.addr_type=''2''
+      left join src_med.dm_address_mapping d
+        on a.dane_code_municipality=d.addr_5
+      left join exe_fixed.temp_neigh e
+        on a.district_code  = e.region_biz_code
+       and a.dane_code_municipality = e.dane_code
+      where not exists(select * from src_med.dm_group_member b where c.t_subs_id = b.member_subs_id)';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_addr.delete;
+      v_tar_addr.delete;
+      v_tar_addr_ref.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_addr limit v_batchnum;
+      exit when v_src_addr.count = 0;
+
+      v_idx := 1;
+      if v_src_addr.count > 0 then
+        for i in v_src_addr.first .. v_src_addr.last loop
+        ------------1 START INIT DM_ADDR_INFO ARRAY--------------------
+       
+        begin
+          v_tar_addr(v_idx).CUST_ID          := v_src_addr(i).t_cust_id;----check
+          v_tar_addr(v_idx).ADDR_ID          := seq_addr_id.nextval;
+          v_tar_addr(v_idx).CUST_TYPE        := '1';
+          v_tar_addr(v_idx).ADDR_TYPE        :=  case when v_src_addr(i).Address_Validation = 'No valido'
+                                                                 then 'U'
+                                                                 else 'S'
+                                                 end;
+          v_tar_addr(v_idx).ADDR_1           := v_src_addr(i).Address_Validation;
+          v_tar_addr(v_idx).ADDR_1_NAME      := v_src_addr(i).Address_Validation;
+          v_tar_addr(v_idx).ADDR_2           := v_src_addr(i).ADDR_2;--v_src_addr(i).province_code;
+          v_tar_addr(v_idx).ADDR_2_NAME      := v_src_addr(i).ADDR_2_NAME;--v_src_addr(i).province_name;
+          v_tar_addr(v_idx).ADDR_3           := v_src_addr(i).ADDR_3;--v_src_addr(i).City_code;
+          v_tar_addr(v_idx).ADDR_3_NAME      := v_src_addr(i).ADDR_3_NAME;--v_src_addr(i).city_name;
+          v_tar_addr(v_idx).ADDR_4           := v_src_addr(i).ADDR_4;--v_src_addr(i).COD_REGION;--region_code;
+          v_tar_addr(v_idx).ADDR_4_NAME      := v_src_addr(i).ADDR_4_NAME;--v_src_addr(i).DESC_REGION;
+          v_tar_addr(v_idx).ADDR_5           := v_src_addr(i).dane_code_municipality;
+          v_tar_addr(v_idx).ADDR_5_NAME      := v_src_addr(i).dane_code_municipality;
+          v_tar_addr(v_idx).ADDR_6           := v_src_addr(i).ADDR_6;--v_src_addr(i).Municipality_code;
+          v_tar_addr(v_idx).ADDR_6_NAME      := v_src_addr(i).ADDR_6_NAME;--v_src_addr(i).municipality;
+          v_tar_addr(v_idx).ADDR_7           := case when v_src_addr(i).tar_type = 'S' then
+                                                          v_src_addr(i).district_name
+                                                     else
+                                                          to_char(v_src_addr(i).neigh_id)
+                                                end;
+          v_tar_addr(v_idx).ADDR_7_NAME      := case when v_src_addr(i).tar_type = 'S' then
+                                                          v_src_addr(i).district_name
+                                                     else
+                                                          v_src_addr(i).neigh_name
+                                                end;
+          v_tar_addr(v_idx).ADDR_8           := v_src_addr(i).Calle_or_carrera;
+          v_tar_addr(v_idx).ADDR_8_NAME      := v_src_addr(i).Calle_or_carrera;
+          v_tar_addr(v_idx).ADDR_9           := v_src_addr(i).Full_address;
+          v_tar_addr(v_idx).ADDR_9_NAME      := v_src_addr(i).Full_address;
+          v_tar_addr(v_idx).ADDR_10          := trim(v_src_addr(i).selected_address);
+          v_tar_addr(v_idx).ADDR_10_NAME     := trim(v_src_addr(i).selected_address);
+          v_tar_addr(v_idx).ADDR_11          := v_src_addr(i).Geo_Coordinates;
+          v_tar_addr(v_idx).ADDR_11_NAME     := v_src_addr(i).Geo_Coordinates;
+          v_tar_addr(v_idx).ADDR_12          := v_src_addr(i).remark;
+          v_tar_addr(v_idx).ADDR_13          := trim(v_src_addr(i).dirsplit);--NULL;
+          v_tar_addr(v_idx).ADDR_14          := v_src_addr(i).social_level;--NULL;
+          v_tar_addr(v_idx).ADDR_15          := v_src_addr(i).status_of_geo_reference;--NULL;
+          v_tar_addr(v_idx).CREATE_EMPL_ID   := PKG_GRETA2_DFT.DEF_CREATE_EMPL_ID;
+          v_tar_addr(v_idx).US_ADDR          := v_src_addr(i).Non_st_addr;
+          v_tar_addr(v_idx).POSTAL_CODE      := v_src_addr(i).postal_code;
+          v_tar_addr(v_idx).DISTRICT_ID      := NULL;
+          v_tar_addr(v_idx).DISTRICT_NAME    := NULL;
+          v_tar_addr(v_idx).CREATE_TIME      := PKG_GRETA2_DFT.DEF_MIN_DATE;--v_src_addr(i).addr_eff_date;
+          v_tar_addr(v_idx).EFF_DATE         := v_src_addr(i).addr_eff_date;---PKG_GRETA2_DFT.DEF_MIN_DATE;
+          v_tar_addr(v_idx).EXP_DATE         := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_addr(v_idx).DATA_BATCH       := NULL;
+          v_tar_addr(v_idx).BE_ID            := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_addr(v_idx).PARTITION_ID     := MOD(v_tar_addr(v_idx).CUST_ID,16);----check
+          v_tar_addr(v_idx).FLEX_TEXT        := NULL;
+          v_tar_addr(v_idx).ENTITY_ID        := v_src_addr(i).TAR_ID;---ENTITY_ID
+          v_tar_addr(v_idx).ENTITY_TYPE      := v_src_addr(i).TAR_TYPE;
+          v_tar_addr(v_idx).EXTRACT_DATE     := v_src_addr(i).EXTRACT_DATE;
+          v_tar_addr(v_idx).DANE_CODE_MUNICIPALITY     := v_src_addr(i).DANE_CODE_MUNICIPALITY;
+          v_tar_addr(v_idx).department                 := v_src_addr(i).department;
+          v_tar_addr(v_idx).city_code                  := v_src_addr(i).citycode;
+          v_tar_addr(v_idx).municipality_code          := v_src_addr(i).municipalitycode;
+          v_tar_addr(v_idx).region_code                := v_src_addr(i).regioncode;
+          v_tar_addr(v_idx).neighborhood_code          := v_src_addr(i).region_biz_code;
+          v_tar_addr(v_idx).addr_16                    := v_src_addr(i).Quadrant               ;    
+          v_tar_addr(v_idx).addr_17                             := v_src_addr(i).neighborhood_code  ;
+          v_tar_addr(v_idx).addr_18                             := case when v_src_addr(i).tar_type = 'S' then
+                                                                             v_src_addr(i).addr_18
+                                                                        else
+                                                                             NULL
+                                                                   end;--v_src_addr(i).usAddr||' '||' '||' '||' ' ;
+          v_tar_addr(v_idx).main_way_number                     := v_src_addr(i).main_way_number        ;
+          v_tar_addr(v_idx).main_way_letter                     := v_src_addr(i).main_way_letter        ;
+          v_tar_addr(v_idx).main_way_bis                        := v_src_addr(i).main_way_bis           ;
+          v_tar_addr(v_idx).main_way_quadrant                   := v_src_addr(i).main_way_quadrant      ;
+          v_tar_addr(v_idx).secondary_way_number                := v_src_addr(i).secondary_way_number   ;
+          v_tar_addr(v_idx).secondary_way_letter                := v_src_addr(i).secondary_way_letter   ;
+          v_tar_addr(v_idx).secondary_way_bis                   := v_src_addr(i).secondary_way_bis      ;
+          v_tar_addr(v_idx).placa                               := v_src_addr(i).placa                  ;
+          v_tar_addr(v_idx).secondary_way_quadrant              := v_src_addr(i).secondary_way_quadrant ;
+          v_tar_addr(v_idx).additional_information              := v_src_addr(i).additional_information ;
+          v_tar_addr(v_idx).addr_20                             := case when v_src_addr(i).tar_type = 'S' then
+                                                                             v_src_addr(i).addr_20
+                                                                        else
+                                                                             NULL
+                                                                   end;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_ADDR_INFO ARRAY wrong';
+              v_err.key_value := v_src_addr(i).ENTITY_ID;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_ADDR_INFO ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+         
+
+        -----------------END INIT DM_ADDR_INFO ARRAY---------------------------
+
+        ------------2 START INIT DM_ADDR_REF ARRAY--------------------
+        begin
+          v_tar_addr_ref(v_idx).CUST_ID               := v_src_addr(i).t_cust_id;
+          v_tar_addr_ref(v_idx).ADDR_ID               := v_tar_addr(v_idx).ADDR_ID;
+          v_tar_addr_ref(v_idx).ADDR_REF_ENTITY_TYPE  := v_src_addr(i).TAR_TYPE;
+          v_tar_addr_ref(v_idx).ADDR_REF_ENTITY_ID    := v_src_addr(i).TAR_ID;---TAR_ID
+          v_tar_addr_ref(v_idx).ADDR_REF_PURPOSE_ID   := PKG_GRETA2_PUB.f_get_newdict('MID_ADDRESS.ADDR_TYPE',v_src_addr(i).new_addr_type,'1');
+          v_tar_addr_ref(v_idx).CREATE_EMPL_ID        := PKG_GRETA2_DFT.DEF_CREATE_EMPL_ID;
+          v_tar_addr_ref(v_idx).CREATE_TIME           := PKG_GRETA2_DFT.DEF_MIN_DATE;--v_src_addr(i).addr_eff_date;
+          v_tar_addr_ref(v_idx).EFF_DATE              := v_src_addr(i).addr_eff_date;---PKG_GRETA2_DFT.DEF_MIN_DATE;
+          v_tar_addr_ref(v_idx).EXP_DATE              := PKG_GRETA2_DFT.DEF_MAX_DATE;
+          v_tar_addr_ref(v_idx).DATA_BATCH            := NULL;
+          v_tar_addr_ref(v_idx).BE_ID                 := PKG_GRETA2_DFT.DEF_BE_ID;----check
+          v_tar_addr_ref(v_idx).PARTITION_ID          := MOD(v_tar_addr_ref(v_idx).CUST_ID,16);----check
+          v_tar_addr_ref(v_idx).FLEX_TEXT             := NULL;
+          v_tar_addr_ref(v_idx).EXTRACT_DATE          := v_src_addr(i).EXTRACT_DATE;
+
+        exception
+            when others then
+
+              v_log.fail_num := v_log.fail_num + 1;
+              v_err.key_name  := 'INIT DM_ADDR_REF ARRAY wrong';
+              v_err.key_value := v_src_addr(i).ENTITY_ID;
+              v_err.ora_err   := sqlcode;
+              v_err.ora_msg   := SUBSTR(SQLERRM, 1, 200);
+              v_err.err_place := 'INIT DM_ADDR_REF ARRAY';
+              pkg_dtlog.p_exception(v_log, v_err);
+              continue;
+         end;
+
+        -----------------END INIT DM_ADDR_REF ARRAY---------------------------
+
+        v_idx          := v_idx + 1;
+        end loop;
+      end if;
+      --output records and commit changes
+      ---?????
+      if v_idx > 0 then
+
+        ------------1 START INSERT DM_ADDR_INFO---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_ADDR_INFO values v_tar_addr(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_ADDR_INFO';
+                  v_err.key_value := v_tar_addr(sql%bulk_exceptions(the_err).error_index).CUST_ID;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_ADDR_INFO';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_ADDR_INFO---------------------------
+
+        ------------2 START INSERT DM_ADDR_REF---------------------------
+        begin
+            forall i_idx in 1 .. v_idx-1 save exceptions
+              insert /* +append nologging */ into SRC_MED.DM_ADDR_REF values v_tar_addr_ref(i_idx);
+                  v_log.success_num := v_log.success_num + sql%rowcount;
+          exception
+            when others then
+              if (sql%bulk_exceptions.count > 0) then
+                for the_err in 1 .. sql%bulk_exceptions.count loop
+                  -- accumulate the error amount
+                  v_log.fail_num  := v_log.fail_num + 1;
+                  -- record error message
+                  v_err.key_name  := 'DM_ADDR_REF';
+                  v_err.key_value := v_tar_addr_ref(sql%bulk_exceptions(the_err).error_index).CUST_ID;
+                  v_err.err_place := pkg_dtlog.outputtype_err || 'insert into DM_ADDR_REF';
+                  v_err.ora_err   := substr(sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code),1,9);
+                  v_err.ora_msg   := sqlerrm(-1 * sql%bulk_exceptions(the_err).error_code);
+                  pkg_dtlog.p_exception(v_log, v_err);
+                end loop;
+              end if;
+          end;
+        -----------------END INSERT DM_ADDR_REF---------------------------
+
+        pkg_dtlog.p_commit(v_log);
+      end if;
+
+      v_log.loop_num    := v_log.loop_num + v_src_addr.count;
+      v_log.success_num := v_log.loop_num - v_log.fail_num;
+      pkg_dtlog.p_commit(v_log);
+    end loop;
+    --finish process
+    pkg_dtlog.p_complete(v_log);
+    exception
+    --abort process if unhandle exception hanpend
+    when others then
+      pkg_dtlog.p_abort(v_log, i_cur_piece);
+
+  end P_DM_ADDR_TABLE;
+
+  procedure P_DM_ACCT_INFO(i_region in number, i_index in number) as
+    v_log                           pkg_dtlog.log_record;
+    v_err                           pkg_dtlog.err_record;
+    i_cur_piece                     number := 0;
+    v_partname                      varchar2(32);
+    v_src_sql                       varchar2(4000);
+    v_batchnum                      number:=10000;
+    v_idx                           number;
+    type type_cur is ref cursor;
+    cur_temp type_cur;
+
+    --source table
+    cursor src_cur is
+    select a.acct_id            ,
+  a.cust_id            ,
+  a.first_name         ,
+  a.second_name        ,
+  a.first_last_name    ,
+  a.second_last_name   ,
+  a.status             ,
+  a.create_time        ,
+  a.create_empl_id     ,
+  a.create_empl_name   ,
+  a.status_date        ,
+  a.eff_date           ,
+  a.exp_date           ,
+  a.payment_type       ,
+  a.extract_date       ,
+  a.bill_cycle_type_id ,
+  a.contact_number1    ,
+  a.contact_number2    ,
+  a.email              ,
+  decode(a.tax_category,'2','1','1','0','0') tax_category      ,
+  a.sub_tax_category   ,
+  to_char(a.tax_start_date,'YYYYMMDD') tax_start_date     ,
+  to_char(a.tax_end_date,'YYYYMMDD') tax_end_date       ,
+  a.other_email        ,
+  a.nationality        ,
+  a.is_dealer          ,
+  upper(a.latefee_pay_flag) latefee_pay_flag   ,
+  a.due_date           ,
+  a.sales_id           ,
+  a.sales_channel_id   ,
+  a.reason_dc          ,
+  a.account_name       ,
+  a.segment            ,
+  a.sub_segment        ,
+  a.branch_short_name  ,
+  a.contract_id        ,
+  a.write_off_status   ,
+  a.writeoff_date      ,
+  round(to_number(a.tax_start_date+5/24-to_date('19700101','YYYYMMDD'))*24*60*60*1000) bes_tax_start_date,
+  round(to_number(a.tax_end_date+5/24-to_date('19700101','YYYYMMDD'))*24*60*60*1000) bes_tax_end_date,
+  a.dnd_flag,a.payment_arrangement_flag,a.new_bill_cycle,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.s_cust_id,
+           b.s_acct_id,
+           b.t_acct_code,
+           b.is_sme,
+           decode(c.payment_method,'CASH','Cash','AUTOPAY','Autopay',c.payment_method) Payment_method,
+           d.dunning_noti
+      from s3_data.MID_ACCT a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,t_acct_code,is_sme from SRC_MED.pre_cas_acct_id
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,t_acct_code,is_sme from SRC_MED.Pre_Cas_Sme where s_acct_id is not null) b
+        on a.acct_id = b.s_acct_id
+      join s3_data.mid_pay_channel c
+        on a.acct_id = c.acct_id
+      left join s3_data.MID_REDLIST d
+        on d.account_number = a.acct_id and d.redlist_type='A';
+
+    type tab_src_acct is table of src_cur%rowtype index by binary_integer;
+    v_src_acct tab_src_acct;
+    --tariff table
+    --target table
+    type tab_tar_acct is table of SRC_MED.DM_ACCT_INFO%rowtype index by binary_integer;
+    v_tar_acct tab_tar_acct;
+
+
+    --<<BEGIN: Customize variable definition area>>
+    --v_s_p_offering_id  varchar2(20);
+    --<<END: Customize variable definition area bottom>>
+
+  begin
+    --create tranformation log
+    v_log := pkg_dtlog.f_create_log_record('P_DM_ACCT_INFO',i_region,i_index, v_batchnum);
+    -- get part name
+    pkg_dtpub.p_get_partname(i_region, v_log.object_name, 's3_data', 'MID_ACCT', i_index, v_partname);
+
+    v_src_sql := '
+    select a.acct_id            ,
+  a.cust_id            ,
+  a.first_name         ,
+  a.second_name        ,
+  a.first_last_name    ,
+  a.second_last_name   ,
+  a.status             ,
+  a.create_time        ,
+  a.create_empl_id     ,
+  a.create_empl_name   ,
+  a.status_date        ,
+  a.eff_date           ,
+  a.exp_date           ,
+  a.payment_type       ,
+  a.extract_date       ,
+  a.bill_cycle_type_id ,
+  a.contact_number1    ,
+  a.contact_number2    ,
+  a.email              ,
+  decode(a.tax_category,''2'',''1'',''1'',''0'',''0'') tax_category       ,
+  a.sub_tax_category   ,
+  to_char(a.tax_start_date,''YYYYMMDD'') tax_start_date     ,
+  to_char(a.tax_end_date,''YYYYMMDD'') tax_end_date       ,
+  a.other_email        ,
+  a.nationality        ,
+  a.is_dealer          ,
+  upper(a.latefee_pay_flag) latefee_pay_flag   ,
+  a.due_date           ,
+  a.sales_id           ,
+  a.sales_channel_id   ,
+  a.reason_dc          ,
+  a.account_name       ,
+  a.segment            ,
+  a.sub_segment        ,
+  a.branch_short_name  ,
+  a.contract_id        ,
+  a.write_off_status   ,
+  a.writeoff_date      ,
+  round(to_number(a.tax_start_date+5/24-to_date(''19700101'',''YYYYMMDD''))*24*60*60*1000) bes_tax_start_date,
+  round(to_number(a.tax_end_date+5/24-to_date(''19700101'',''YYYYMMDD''))*24*60*60*1000) bes_tax_end_date,
+  a.dnd_flag,a.payment_arrangement_flag,a.new_bill_cycle,
+           b.t_acct_id,
+           b.t_cust_id,
+           b.s_cust_id,
+           b.s_acct_id,
+           b.t_acct_code,
+           b.is_sme,
+           decode(c.payment_method,''CASH'',''Cash'',''AUTOPAY'',''Autopay'',c.payment_method) Payment_method,
+           d.Dunning_Noti
+      from s3_data.MID_ACCT partition('||v_partname||') a
+      join (select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,t_acct_code,is_sme from SRC_MED.pre_cas_acct_id partition('||v_partname||')
+             union all
+            select distinct t_acct_id,t_cust_id,s_cust_id,s_acct_id,t_acct_code,is_sme from SRC_MED.Pre_Cas_Sme where s_acct_id is not null)  b
+        on a.acct_id = b.s_acct_id
+      join s3_data.mid_pay_channel partition('||v_partname||') c
+        on a.acct_id = c.acct_id
+      left join s3_data.MID_REDLIST d
+        on d.account_number = a.acct_id and d.redlist_type=''A''';
+
+    open cur_temp for v_src_sql;
+    loop
+      v_src_acct.delete;
+      v_tar_acct.delete;
+
+      fetch cur_temp bulk collect
+        into v_src_acct limit v_batchnum;
+      exit when v_src_acct.count = 0;
+
+      v_idx := 1;
+      if v_src_acct.count > 0 then
+        for i in v_src_acct.first .. v_src_acct.last loop
